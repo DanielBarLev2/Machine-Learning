@@ -22,7 +22,7 @@ def initialize_parameters(layer_dims: np.array) -> dict:
 
 def linear_forward(A, W: np.array, b: np.array) -> tuple(int, dict):
     """
-    Descripon: Implement the linear part of a layer's forward propagaon
+    Description: Implement the linear part of a layer's forward propagaon
 
     input:
     A – the activations of the previous layer
@@ -56,7 +56,7 @@ def softmax(Z: np.array) -> tuple(np.array, np.array):
     return A, activations_cache
 
 
-def relu(Z):
+def relu(Z: np.array) -> tuple(np.array, np.array):
     """
     Input:
     Z – the linear component of the activation function
@@ -66,4 +66,35 @@ def relu(Z):
     activation_cache – returns Z, which will be useful for the backpropagation
     """
     A = np.maximum(0, Z)
-    return A, Z
+    activations_cache = Z
+
+    return A, activations_cache
+
+
+def linear_activation_forward(A_prev: np.array, W: np.array, B: np.array, activation_fn: str) -> tuple(np.array,
+                                                                                                     np.array):
+    """
+    Description: Implement the forward propagaon for the LINEAR -> ACTIVATION layer
+
+    Input:
+    A_prev – activation of the previous layer
+    W – the weights matrix of the current layer
+    B – the bias vector of the current layer
+    activation – the activation function to be used (a string, either “softmax” or “relu”)
+
+    Output:
+    A – the activation of the current layer
+    cache – a joint dictionary containing both linear_cache and activation_cache
+    """
+
+    if activation_fn.__eq__("softmax"):
+        Z, linear_cache = linear_forward(A=A_prev, W=W, b=b)
+        A, activation_cache = softmax(Z=Z)
+
+    elif activation_fn.__eq__("relu"):
+        Z, linear_cache = linear_forward(A=A_prev, W=W, b=b)
+        A, activation_cache = relu(Z=Z)
+
+    cache = [linear_cache, activation_cache]
+
+    return A, cache
