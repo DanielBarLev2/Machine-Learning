@@ -40,21 +40,30 @@ def linear_forward(A, W: np.array, b: np.array) -> tuple(int, dict):
     return Z, linear_cache
 
 
-def sigmoid(Z):
-    A = 1 / (1 + np.exp(-Z))
-    return A, Z
+def softmax(Z: np.array) -> tuple(np.array, np.array):
+    """
+    Input:
+    Z – the linear component of the activation function
 
+    Output:
+    A – the activations of the layer
+    activations_cache – returns Z, which will be useful for the backpropagation
+    """
 
-def tanh(Z):
-    A = np.tanh(Z)
-    return A, Z
+    A = np.exp(Z) / np.sum(Z, axis=0)
+    activations_cache = Z
+
+    return A, activations_cache
 
 
 def relu(Z):
+    """
+    Input:
+    Z – the linear component of the activation function
+
+    Output:
+    A – the activation of the layer
+    activation_cache – returns Z, which will be useful for the backpropagation
+    """
     A = np.maximum(0, Z)
-    return A, Z
-
-
-def leaky_relu(Z):
-    A = np.maximum(0.1 * Z, Z)
     return A, Z
