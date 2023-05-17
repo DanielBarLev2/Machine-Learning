@@ -20,7 +20,7 @@ def initialize_parameters(layer_dims: np.array) -> dict:
     return parameters
 
 
-def linear_forward(activation, w: np.array, b: np.array) -> tuple[int, dict]:
+def linear_forward(activation, w: np.array, b: np.array) -> tuple[int, tuple]:
     """
     Description: Implement the linear part of a layer's forward propagaon
 
@@ -31,17 +31,17 @@ def linear_forward(activation, w: np.array, b: np.array) -> tuple[int, dict]:
 
     Output:
     Z – the linear component of the activations function (i.e., the value before applying the non-linear funcon)
-    linear_cache – a diconary containing activation, w, b (stored for making the backpropagaon easier to compute)
+    cache – a diconary containing activation, w, b (stored for making the backpropagaon easier to compute)
     """
 
     z = np.dot(w, activation) + b
-    linear_cache = {activation: activation, w: w, b: b}
+    cache = (activation, w, b)
 
-    return z, linear_cache
+    return z, cache
 
 
 def linear_activation_forward(activation_prev: np.array, w: np.array,
-                              B: np.array, activation_fn: str) -> tuple[np.array, np.array]:
+                              B: np.array, activation_fn: str) -> tuple[np.array, tuple]:
     """
     Description: Implement the forward propagaon for the LINEAR -> ACTIVATION layer
 
@@ -64,7 +64,7 @@ def linear_activation_forward(activation_prev: np.array, w: np.array,
         Z, linear_cache = linear_forward(activation=activation_prev, w=w, b=b)
         activation, activation_cache = activation_functions.relu(Z=Z)
 
-    cache = [linear_cache, activation_cache]
+    cache = (linear_cache, activation_cache)
 
     return activation, cache
 
