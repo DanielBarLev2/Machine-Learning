@@ -99,3 +99,24 @@ def l_model_forward(data_x: np.array, parameters: dict, use_batchnorm: bool) -> 
     caches.append(cache)
 
     return activation_last, caches
+
+
+def compute_cost(activation_last, y: np.array):
+    """
+    Descripon: Implement the cost function defined by equation. The requested cost function is categorical
+    cross-entropy loss
+
+    Input:
+    activation_last – probability vector corresponding to your label predicons, shape (num_of_classes,
+    number of examples)
+    y – the labels vector (i.e. the ground truth)
+
+    Output:
+    cost – the cross-entropy cost
+    """
+
+    m = y.shape[1]
+
+    cost = - (1 / m) * np.sum(np.multiply(y, np.log(activation_last)) + np.multiply(1 - y, np.log(1 - activation_last)))
+
+    return cost
