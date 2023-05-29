@@ -30,7 +30,7 @@ def linear_backward(dz: any, cache: tuple) -> tuple[np.array, any, any]:
     return da_prev, dw, db
 
 
-def linear_activation_backward(da, cache, activation):
+def linear_activation_backward(da: any, cache: tuple, activation: str) -> tuple:
     """
     Description: Implements the backward propagation for the LINEAR->ACTIVATION layer. The function first computes
     dZ and then applies the linear_backward function.
@@ -61,4 +61,33 @@ def linear_activation_backward(da, cache, activation):
     return da_prev, dw, dx
 
 
+def l_model_backward(al: np.array, y: np.array, caches: list) -> dict:
+    """
+    Description: Implement the backward propagation process for the enre network.
+    The backpropagation for the softmax function should be done only once as only the
+    output layers uses it and the RELU should be done iteratively over all the remaining
+    layers of the network.
 
+    Input:
+    AL - the probabilities vector, the output of the forward propagation (L_model_forward)
+    Y - the true labels vector (the "ground truth" - true classifications)
+    Caches - list of caches containing for each layer: a) the linear cache; b) the activation cache
+
+    Output: Grads - a dictionary with the gradients
+    """
+    y = y.reshape(al.shape)
+    l = len(caches)
+    grads = {}
+
+    dal = np.divide(al - y, np.multiply(al, 1 - al))
+
+    grads[f'dA + {l - 1}'], grads[f'dW + {l}'], grads[f'db + {l}'] =\
+        linear_activation_backward(da=dal,cache=caches[l - 1], activation="softmax")
+
+    for l in range(l - 1, 0, -1):
+        current_cache = caches[l - 1]
+
+        grads[f'dA + {l - 1}'], grads[f'dW + {l}'], grads[f'db + {l}'] = \
+            linear_activation_backward(da=grads[f'dA + {l}'], cache=current_cache, activation="relu")
+
+    return grads
