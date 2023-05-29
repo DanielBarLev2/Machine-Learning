@@ -44,8 +44,8 @@ def relu_backward(da: any, activation_cache: any) -> np.array:
     """
 
     z = activation_cache
-    dz = np.array(da, copy=True)
-    dz[z <= 0] = 0
+    a, z = relu(z=z)
+    dz = np.multiply(da, np.int64(a > 0))
 
     return dz
 
@@ -63,5 +63,16 @@ def softmax_backward(da: any, activation_cache: tuple) -> np.array:
     """
 
     z = activation_cache
+    a, z = softmax(z=z)
 
-    p = softmax(z=z)
+    dim = z.shape[1]
+    dz = np.zeros_like(z)
+
+    for i in range(dim):
+        for j in range(dim):
+            if i == j:
+                dz[:, i] += da * (a[:, i] * (1 - a[:, i]))
+            else:
+                dz[:, i] += da * -(a[:, i] * a[:, j])
+
+    return dz
