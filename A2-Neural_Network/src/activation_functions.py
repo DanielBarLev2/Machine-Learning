@@ -1,6 +1,6 @@
 import numpy as np
 
-def softmax(z: np.array) -> tuple[np.array, np.array]:
+def sigmoid(z: np.ndarray) -> tuple[np.array, np.ndarray]:
     """
     Input:
     Z – the linear component of the activation function
@@ -10,13 +10,13 @@ def softmax(z: np.array) -> tuple[np.array, np.array]:
     activations_cache – returns Z, which will be useful for the backpropagation
     """
 
-    activation = np.exp(z) / np.sum(z, axis=0)
+    activation = 1 / (1 + np.exp(-z))
     activations_cache = z
 
     return activation, activations_cache
 
 
-def relu(z: np.array) -> tuple[np.array, np.array]:
+def relu(z: np.array) -> tuple[np.array, np.ndarray]:
     """
     Input:
     Z – the linear component of the activation function
@@ -31,7 +31,7 @@ def relu(z: np.array) -> tuple[np.array, np.array]:
     return activation, activations_cache
 
 
-def relu_backward(da: any, activation_cache: any) -> np.array:
+def relu_backward(da: np.ndarray, activation_cache: np.ndarray) -> np.array:
     """
     Description: Implements backward propagation for a ReLU unit
 
@@ -50,9 +50,9 @@ def relu_backward(da: any, activation_cache: any) -> np.array:
     return dz
 
 
-def softmax_backward(da: any, activation_cache: tuple) -> np.array:
+def sigmoid_backward(da: np.ndarray, activation_cache: np.ndarray) -> np.array:
     """
-    Description: Implements backward propagation for a softmax unit
+    Description: Implements backward propagation for a sigmoid unit
 
     Input:
     dA – the post-activation gradient
@@ -63,16 +63,8 @@ def softmax_backward(da: any, activation_cache: tuple) -> np.array:
     """
 
     z = activation_cache
-    a, z = softmax(z=z)
+    a, z = sigmoid(z=z)
 
-    dim = z.shape[1]
-    dz = np.zeros_like(z)
-
-    for i in range(dim):
-        for j in range(dim):
-            if i == j:
-                dz[:, i] += da * (a[:, i] * (1 - a[:, i]))
-            else:
-                dz[:, i] += da * -(a[:, i] * a[:, j])
+    dz = da * sigmoid(a) * sigmoid(1 - a)
 
     return dz
