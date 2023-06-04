@@ -9,11 +9,12 @@ def initialize_parameters(layer_dims: np.ndarray) -> dict:
     output: a dictionary containing the initialized w and b parameters of each layer
     (W1…WL, b1…bL).
     """
+    np.random.seed(99)
 
     parameters = {}
 
     for layer in range(1, len(layer_dims)):
-        parameters[f'W{layer}'] = np.random.randn(layer_dims[layer], layer_dims[layer - 1]) * 0.01
+        parameters[f'W{layer}'] = np.random.randn(layer_dims[layer], layer_dims[layer - 1]) * 0.1
         parameters[f'b{layer}'] = np.zeros((layer_dims[layer], 1))
 
     return parameters
@@ -57,8 +58,8 @@ def linear_activation_forward(prev_activation: np.ndarray, w: np.ndarray, b: np.
 
     z, linear_cache = linear_forward(activation=prev_activation, w=w, b=b)
 
-    if activation_function.__eq__("sigmoid"):
-        activation, activation_cache = activation_functions.sigmoid(z=z)
+    if activation_function.__eq__("softmax"):
+        activation, activation_cache = activation_functions.softmax(z=z)
 
         cache = (linear_cache, activation_cache)
 
@@ -103,7 +104,7 @@ def l_model_forward(x_train: np.ndarray, parameters: dict) -> tuple[np.ndarray, 
 
     # at the last layer, activates the sigmoid layer
     last_activation, cache = linear_activation_forward(prev_activation=activation, w=parameters[f'W{last_layer}'],
-                                                      b=parameters[f'b{last_layer}'], activation_function="sigmoid")
+                                                      b=parameters[f'b{last_layer}'], activation_function="softmax")
 
     caches.append(cache)
 
@@ -124,10 +125,9 @@ def compute_cost(last_activation: np.ndarray, y_train: np.array) -> float:
     cost – the cross-entropy cost
     """
 
-    m = y_train.shape[1]
+    m = last_activation.shape[1]
 
     # cross-entropy loss calculation:
-    cost = - (1 / m) * np.sum(np.multiply(y_train, np.log(last_activation))
-                              + np.multiply(1 - y_train, np.log(1 - last_activation)))
+    cost = -1 / m * np.sum(y_train * np.log(last_activation) + (1 - y_train) * np.log(1 - last_activation))
 
     return cost

@@ -64,7 +64,41 @@ def sigmoid_backward(da: np.ndarray, activation_cache: np.ndarray) -> np.array:
 
     z = activation_cache
     a, z = sigmoid(z=z)
+    dz = da * a * (1-a)
 
-    dz = da * sigmoid(a) * sigmoid(1 - a)
+    return dz
+
+
+def softmax(z: np.ndarray) -> tuple[np.array, np.ndarray]:
+    """
+    Input:
+    Z – the linear component of the activation function
+
+    Output:
+    activation – the activations of the layer
+    activations_cache – returns Z, which will be useful for the backpropagation
+    """
+
+    activation = np.exp(z) / np.sum(np.exp(z), axis=0, keepdims=True)
+    activations_cache = z
+
+    return activation, activations_cache
+
+
+def softmax_backward(da, activation_cache):
+    """
+    Compute the backward propagation for the softmax activation function.
+
+    Arguments:
+    da -- true labels, numpy array of shape (n_classes, m)
+    cache -- input Z stored during forward propagation
+
+    Returns:
+    dz -- gradient of the cost with respect to Z
+    """
+
+    z = activation_cache
+    a, z = sigmoid(z=z)
+    dz = da * a * (1-a)
 
     return dz

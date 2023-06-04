@@ -1,7 +1,7 @@
-from activation_functions import sigmoid_backward, relu_backward
+from activation_functions import sigmoid_backward, relu_backward, softmax_backward
 import numpy as np
 
-def linear_backward(dz: any, cache: tuple) -> tuple[np.array, any, any]:
+def linear_backward(dz: np.ndarray, cache: tuple) -> tuple[np.array, np.ndarray, np.ndarray]:
     """
     description: Implements the linear part of the backward propagation process for a single layer
 
@@ -19,10 +19,10 @@ def linear_backward(dz: any, cache: tuple) -> tuple[np.array, any, any]:
     m = activation_prev.shape[1]
 
     # dW(l) = dL/db(l)
-    dw = (1 / m) * np.dot(dz, activation_prev.T)
+    dw = np.dot(dz, activation_prev.T) / m
 
     # db(l) = dL/db(l)
-    db = (1 / m) * np.sum(dz, axis=1, keepdims=True)
+    db = np.sum(dz, axis=1, keepdims=True) / m
 
     # dA(l-1) = dL/dA(l-1)
     da_prev = np.dot(w.T, dz)
@@ -30,7 +30,7 @@ def linear_backward(dz: any, cache: tuple) -> tuple[np.array, any, any]:
     return da_prev, dw, db
 
 
-def linear_activation_backward(da: any, cache: tuple, activation_function: str) -> tuple:
+def linear_activation_backward(da: np.ndarray, cache: tuple, activation_function: str) -> tuple:
     """
     Description: Implements the backward propagation for the LINEAR->ACTIVATION layer. The function first computes
     dZ and then applies the linear_backward function.
@@ -47,8 +47,8 @@ def linear_activation_backward(da: any, cache: tuple, activation_function: str) 
 
     linear_cache, activation_cache = cache
 
-    if activation_function == "sigmoid":
-        dz = sigmoid_backward(da=da, activation_cache=activation_cache)
+    if activation_function == "softmax":
+        dz = softmax_backward(da=da, activation_cache=activation_cache)
         da_prev, dw, dx = linear_backward(dz=dz, cache=linear_cache)
 
     elif activation_function == "relu":
@@ -75,15 +75,16 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
 
     Output: Grads - a dictionary with the gradients
     """
+
     y_train = y_train.reshape(last_activation.shape)
     layer = len(caches)
     gradients = {}
 
-    d_la = np.divide(last_activation - y_train, np.multiply(last_activation, 1 - last_activation))
+    d_la = - (np.divide(y_train, last_activation) - np.divide(1 - y_train, 1 - last_activation))
 
     # at the beginning layer, activates the sigmoid layer
     gradients[f'dA{layer - 1}'], gradients[f'dW{layer}'], gradients[f'db{layer}'] =\
-        linear_activation_backward(da=d_la,cache=caches[layer - 1], activation_function="sigmoid")
+        linear_activation_backward(da=d_la,cache=caches[layer - 1], activation_function="softmax")
 
     # back propagate the linear activation using relu
     for layer in range(layer - 1, 0, -1):
@@ -95,7 +96,7 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
     return gradients
 
 
-def update_parameters(parameters, grads, learning_rate):
+def update_parameters(parameters: dict, grads: dict, learning_rate: float) -> dict:
     """
     Description: Updates parameters using gradient descent
 
