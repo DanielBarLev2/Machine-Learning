@@ -66,8 +66,10 @@ def softmax_backward(da, activation_cache):
     dz -- gradient of the cost with respect to Z
     """
 
-    z = activation_cache
-    a, z = softmax(z=z)
-    dz = da * a * (1-a)
+    raw = activation_cache
+    p, z = softmax(z=raw)
+    dz = da * p * (1-p)
+
+
 
     return dz

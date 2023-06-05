@@ -1,4 +1,4 @@
-from activation_functions import sigmoid_backward, relu_backward, softmax_backward
+from activation_functions import relu_backward, softmax_backward, softmax
 import numpy as np
 
 def linear_backward(dz: np.ndarray, cache: tuple) -> tuple[np.array, np.ndarray, np.ndarray]:
@@ -80,11 +80,13 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
     layer = len(caches)
     gradients = {}
 
-    d_la = - (np.divide(y_train, last_activation) - np.divide(1 - y_train, 1 - last_activation))
+    # d_la_c = - (np.divide(y_train, last_activation) - np.divide(1 - y_train, 1 - last_activation))
 
-    # at the beginning layer, activates the sigmoid layer
+    d_la_c = 2 * (last_activation - y_train)
+
+    # at the beginning layer, activates the softmax layer
     gradients[f'dA{layer - 1}'], gradients[f'dW{layer}'], gradients[f'db{layer}'] =\
-        linear_activation_backward(da=d_la,cache=caches[layer - 1], activation_function="softmax")
+        linear_activation_backward(da=d_la_c,cache=caches[layer - 1], activation_function="softmax")
 
     # back propagate the linear activation using relu
     for layer in range(layer - 1, 0, -1):
@@ -94,6 +96,27 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
             linear_activation_backward(da=gradients[f'dA{layer}'], cache=current_cache, activation_function="relu")
 
     return gradients
+
+
+def compute_cost_gradient(last_activation: np.ndarray, y_train: np.array) -> float:
+    """
+    Description: Implement the cost function defined by equation.
+    The requested cost function is categorical cross-entropy loss.
+
+    Input:
+    y_train (ndarray of shape (n, m)) – A one-hot encoding of the true class labels.
+    Each row constitutes a training example, and each column is a different class.
+    last_activation (ndarray of shape (n, m)) – The network predictions for the probability of each of m class labels
+    on each of n examples in a batch.
+
+    Output:
+    grad (ndarray of shape (n, m)) – The gradient of the cross-entropy loss with respect to the input to the softmax
+    function.
+    """
+
+    d_cost = 1
+
+    return d_cost
 
 
 def update_parameters(parameters: dict, grads: dict, learning_rate: float) -> dict:

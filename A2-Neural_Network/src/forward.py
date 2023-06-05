@@ -1,5 +1,5 @@
-import numpy as np
 import activation_functions
+import numpy as np
 
 def initialize_parameters(layer_dims: np.ndarray) -> dict:
     """
@@ -113,7 +113,7 @@ def l_model_forward(x_data: np.ndarray, parameters: dict) -> tuple[np.ndarray, l
     return last_activation, caches
 
 
-def compute_cost(last_activation: np.ndarray, y_train: np.array) -> float:
+def cross_entropy_loss(last_activation: np.ndarray, y_train: np.array) -> float:
     """
     Description: Implement the cost function defined by equation.
     The requested cost function is categorical cross-entropy loss.
@@ -130,7 +130,6 @@ def compute_cost(last_activation: np.ndarray, y_train: np.array) -> float:
 
     m = last_activation.shape[1]
 
-    # cross-entropy loss calculation:
-    cost = - (1 / m) * np.sum(np.multiply(y_train, np.log(last_activation))
-                              + np.multiply(1 - y_train, np.log(1 - last_activation)))
+    cost = (1 / m) * np.sum((- np.log( np.exp(last_activation) / np.sum(np.exp(y_train)))))
+
     return cost

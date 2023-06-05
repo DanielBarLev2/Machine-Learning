@@ -1,5 +1,5 @@
-from forward import initialize_parameters, l_model_forward, compute_cost
-from backward import l_model_backward, update_parameters
+from forward import initialize_parameters, l_model_forward, cross_entropy_loss
+from backward import l_model_backward, update_parameters, compute_cost_gradient
 import numpy as np
 
 def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarray, learning_rate: float,
@@ -11,7 +11,7 @@ def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarr
     Batch size is selected such that it enables the code to run well.
 
     Input:
-    x_train – the input data, a numpy array of shape (height*width , number_of_examples).
+    x_data – the input data, a numpy array of shape (height*width , number_of_examples).
     y_train – the “real” labels of the data, a vector of shape (num_of_classes, number of examples).
     Layer_dims – a list containing the dimensions of each layer, including the input.
     batch_size – the number of examples in a single training batch.
@@ -33,9 +33,9 @@ def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarr
 
     for i in range(num_iterations):
         # iterate over l layers to get the final last last_activation and the cache
-        last_activation, caches = l_model_forward(x_train=x_train, parameters=parameters)
+        last_activation, caches = l_model_forward(x_data=x_train, parameters=parameters)
 
-        cost = compute_cost(last_activation=last_activation, y_train=y_train)
+        cost = cross_entropy_loss(last_activation=last_activation, y_train=y_train)
 
         # iterate over L-layers backward to get gradients
         gradients = l_model_backward(last_activation=last_activation, y_train=y_train, caches=caches)
@@ -68,11 +68,9 @@ def predict(x_test: np.ndarray, y_test: np.ndarray, parameters: dict) -> str:
     score). Use the somax function to normalize the output values.
     """
 
-    predictions, caches = l_model_forward(x_train=x_test, parameters=parameters)
+    predictions, caches = l_model_forward(x_data=x_test, parameters=parameters)
 
-    predictions = np.round(predictions)
-    y_test = np.round(y_test)
-    accuracy = np.mean(predictions == y_test) * 100
+    accuracy = np.mean(predictions == y_test, axis=0) / len(y_test)
 
     return f"The accuracy rate is: {accuracy:.2f}%."
 
