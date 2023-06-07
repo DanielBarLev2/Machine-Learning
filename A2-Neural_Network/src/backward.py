@@ -76,7 +76,7 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
     Output: Grads - a dictionary with the gradients
     """
 
-    y_train = y_train.reshape(last_activation.shape)
+    # _train = y_train.reshape(last_activation.shape)
     layer = len(caches)
     gradients = {}
 

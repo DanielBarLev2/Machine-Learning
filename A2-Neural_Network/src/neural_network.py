@@ -77,7 +77,7 @@ def prepares_folds(x_data: np.ndarray, y_data: np.ndarray, n_folds=5) -> dict:
      return folds
 
 
-def evaluate_model(folds: dict, num_iterations=100, learning_rate=0.009) -> dict:
+def evaluate_model(folds: dict, num_iterations=10, learning_rate=0.009) -> dict:
     """
     Description: evaluates model using five folds and a cross validation test samples.
 
@@ -93,16 +93,17 @@ def evaluate_model(folds: dict, num_iterations=100, learning_rate=0.009) -> dict
         x_fold_train, x_fold_test, y_fold_train, y_fold_test = folds[k_fold]
 
         # set up dimensions
-        layers_dims = np.array([x_fold_train.shape[0], 20, 7, 5, 10])
+        layers_dims = np.array([x_fold_train.shape[0], 10, 10])
 
         # train the network by folds
         parameters = l_layer_model(x_train=x_fold_train, y_train=y_fold_train, layer_dims=layers_dims,
                                    learning_rate=learning_rate, num_iterations=num_iterations)
 
         accuracy = predict(x_test=x_fold_test, y_test=y_fold_test, parameters=parameters)
-        print(f'fold {k_fold} accuracy on validation set is {accuracy} %')
+        print(f'{k_fold} accuracy on validation set is {accuracy} %')
 
     return parameters
+
 
 def run():
     x_train, y_train, x_test, y_test = load_dataset()
@@ -115,5 +116,5 @@ def run():
 
     accuracy = predict(x_test=x_test, y_test=y_test, parameters=parameters)
 
-    print(f'accuracy on test set is {accuracy} %')
+    print(f'accuracy on test data is {accuracy} %')
 

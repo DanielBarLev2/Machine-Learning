@@ -1,5 +1,5 @@
 from forward import initialize_parameters, l_model_forward, cross_entropy_loss
-from backward import l_model_backward, update_parameters, compute_cost_gradient
+from backward import l_model_backward, update_parameters
 import numpy as np
 
 def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarray, learning_rate: float,
@@ -72,5 +72,5 @@ def predict(x_test: np.ndarray, y_test: np.ndarray, parameters: dict) -> str:
 
     accuracy = np.mean(predictions == y_test, axis=0) / len(y_test)
 
-    return f"The accuracy rate is: {accuracy:.2f}%."
+    return f"The accuracy rate is: {accuracy}%."
 
