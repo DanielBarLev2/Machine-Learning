@@ -7,7 +7,13 @@ import numpy as np
 
 def load_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    load mnist dataset and vectorize it and encode y data as one-hot.
+    Description: load mnist dataset. then, vectorize it and encode y data as one-hot.
+
+    Output:
+    x_train: [num of examples, features].
+    y_train: [num of examples, true label].
+    x_test: [num of examples, features].
+    y_test: [num of examples, true label].
     """
 
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -25,8 +31,16 @@ def load_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
 def normalize(x_train: np.ndarray, x_test: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    scale and normalise data.
+    Description: scale and normalise data.
+
+    Input:
+    x_train -[num of examples, features].
+    x_test - [num of examples, features].
+
+    Output:
+    x_train_norm, x_test_norm - normalised to contain values between [0,1].
     """
+
     x_train_norm = x_train.astype('float32')
     x_test_norm = x_test.astype('float32')
 
@@ -36,44 +50,70 @@ def normalize(x_train: np.ndarray, x_test: np.ndarray) -> tuple[np.ndarray, np.n
     return x_train_norm, x_test_norm
 
 
-def evaluate_model(x_data: np.ndarray, y_data: np.ndarray, n_folds=5):
+def prepares_folds(x_data: np.ndarray, y_data: np.ndarray, n_folds=5) -> dict:
      """
-     prepares cross validation and evaluates model.
+     Description: prepares cross validation by dividing to five folds.
+
+     Input:
+     x_data - [num of examples, features].
+     y_data - [num of examples, true label].
+
+     Output:
+     fold - dictionary of five folds: [x_fold_train, x_fold_test, y_fold_train, y_fold_test].
      """
 
      k_fold = KFold(n_folds, shuffle=True, random_state=1)
-
-     parameters = []
+     folds = {}
 
      # enumerate splits
-     for x_train_i, x_test_i in k_fold.split(x_data):
+     for index, (x_train_i, x_test_i) in enumerate(k_fold.split(x_data)):
 
-         # select rows for train and test
-         x_fold_train, y_fold_train, x_test, y_test = x_data[x_train_i].T, y_data[x_train_i].T,\
-             x_data[x_test_i].T, y_data[x_test_i].T
+         # split the folds and transpose the input vectors
+         x_fold_train, x_fold_test = x_data[x_train_i].T, x_data[x_test_i].T
+         y_fold_train, y_fold_test = y_data[x_train_i].T, y_data[x_test_i].T
 
-         # set up dimensions
-         layers_dims = np.array([x_fold_train.shape[0], 20, 7, 5, 10])
+         folds[f'fold{index}'] = x_fold_train, x_fold_test, y_fold_train, y_fold_test
 
-         # train the network by folds
-         parameters = l_layer_model(x_train=x_fold_train, y_train=y_fold_train, layer_dims=layers_dims,
-                                    learning_rate=0.009, num_iterations=100)
+     return folds
 
-         accuracy = predict(x_test=x_test, y_test=y_test, parameters=parameters)
 
-         print(f'accuracy: {accuracy}')
+def evaluate_model(folds: dict, num_iterations=100, learning_rate=0.009) -> dict:
+    """
+    Description: evaluates model using five folds and a cross validation test samples.
 
-     return parameters
+    Input:
+    folds - [x_fold_train, x_fold_test, y_fold_train, y_fold_test].
 
+    Output:
+    parameters - dict filled with weight and biases.
+    """
+    parameters = {}
+
+    for k_fold in folds:
+        x_fold_train, x_fold_test, y_fold_train, y_fold_test = folds[k_fold]
+
+        # set up dimensions
+        layers_dims = np.array([x_fold_train.shape[0], 20, 7, 5, 10])
+
+        # train the network by folds
+        parameters = l_layer_model(x_train=x_fold_train, y_train=y_fold_train, layer_dims=layers_dims,
+                                   learning_rate=learning_rate, num_iterations=num_iterations)
+
+        accuracy = predict(x_test=x_fold_test, y_test=y_fold_test, parameters=parameters)
+        print(f'fold {k_fold} accuracy on validation set is {accuracy} %')
+
+    return parameters
 
 def run():
     x_train, y_train, x_test, y_test = load_dataset()
 
     x_train, x_test = normalize(x_train=x_train, x_test=x_test)
 
-    parameters = evaluate_model(x_data=x_train, y_data=y_train)
+    folds = prepares_folds(x_data=x_train, y_data=y_train)
 
-    print("last")
+    parameters = evaluate_model(folds=folds)
+
     accuracy = predict(x_test=x_test, y_test=y_test, parameters=parameters)
 
-    print(f'test accuracy: {accuracy} %')
+    print(f'accuracy on test set is {accuracy} %')
+
