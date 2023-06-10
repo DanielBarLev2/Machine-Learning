@@ -59,17 +59,15 @@ def softmax_backward(da, activation_cache):
     Description: Implements backward propagation for a Softmax unit.
 
     Arguments:
-    da -- true labels, numpy array of shape (n_classes, m)
+    da - true labels, numpy array of shape (n_classes, m)
     cache -- input Z stored during forward propagation
 
     Returns:
-    dz -- gradient of the cost with respect to Z
+    dz - gradient of the cost with respect to Z
     """
 
     raw = activation_cache
     p, z = softmax(z=raw)
     dz = da * p * (1-p)
-
-
 
     return dz

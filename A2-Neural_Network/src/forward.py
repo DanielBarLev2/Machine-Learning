@@ -11,8 +11,6 @@ def initialize_parameters(layer_dims: np.ndarray) -> dict:
     output: parameters - a dictionary containing the initialized w and b parameters of each layer (W1…WL, b1…bL).
     """
 
-    np.random.seed(99)
-
     parameters = {}
 
     for layer in range(1, len(layer_dims)):
@@ -22,7 +20,7 @@ def initialize_parameters(layer_dims: np.ndarray) -> dict:
     return parameters
 
 
-def linear_forward(activation, w: np.array, b: np.array):
+def linear_forward(activation, w: np.array, b: np.array, layer: int):
     """
     Description: Implement the linear part of a layer's forward propagation.
 
@@ -36,14 +34,17 @@ def linear_forward(activation, w: np.array, b: np.array):
     cache – a dictionary containing activation, w, b (stored for making the backpropagation easier to compute).
     """
 
+    cache = {}
     z = np.dot(w, activation) + b
-    cache = (activation, w, b)
+    cache[f'x{layer}'] = activation
+    cache[f'W{layer}'] = w
+    cache[f'b{layer}'] = b
 
     return z, cache
 
 
-def linear_activation_forward(prev_activation: np.ndarray, w: np.ndarray, b: np.ndarray, activation_function: str) ->\
-        tuple[np.ndarray, tuple]:
+def linear_activation_forward(prev_activation: np.ndarray, w: np.ndarray, b: np.ndarray, activation_function: str,
+                              layer: int) -> tuple[np.ndarray, dict]:
     """
     Description: Implement the forward propagation for the activation function decision.
 
@@ -55,26 +56,26 @@ def linear_activation_forward(prev_activation: np.ndarray, w: np.ndarray, b: np.
 
     Output:
     activation – the activation of the current layer
-    cache – a joint dictionary containing both linear_cache and activation_cache
+    cache – a joint dictionary containing both cache and activation_cache
     """
 
     # calculate the linear part.
-    z, linear_cache = linear_forward(activation=prev_activation, w=w, b=b)
+    z, cache = linear_forward(activation=prev_activation, w=w, b=b, layer=layer)
 
     if activation_function.__eq__("softmax"):
         activation, activation_cache = activation_functions.softmax(z=z)
-        cache = (linear_cache, activation_cache)
+        cache[f'z{layer}'] = activation_cache
 
         return activation, cache
 
     elif activation_function.__eq__("relu"):
         activation, activation_cache = activation_functions.relu(z=z)
-        cache = (linear_cache, activation_cache)
+        cache['z'] = activation_cache
 
         return activation, cache
 
 
-def l_model_forward(x_data: np.ndarray, parameters: dict) -> tuple[np.ndarray, list[tuple]]:
+def l_model_forward(x_data: np.ndarray, parameters: dict) -> tuple[np.ndarray, list[dict]]:
     """
     Description: Implement forward propagation for the entire network computation.
     [LINEAR->RELU]*(L-1)->LINEAR->SOFTMAX
@@ -98,7 +99,7 @@ def l_model_forward(x_data: np.ndarray, parameters: dict) -> tuple[np.ndarray, l
 
         # apply the linear activation using relu
         activation, cache = linear_activation_forward(prev_activation=prev_activation, w=parameters[f'W{layer}'],
-                                                  b=parameters[f'b{layer}'], activation_function="relu")
+                                                  b=parameters[f'b{layer}'], activation_function="relu", layer=layer)
 
         caches.append(cache)
 
@@ -106,7 +107,8 @@ def l_model_forward(x_data: np.ndarray, parameters: dict) -> tuple[np.ndarray, l
 
     # at the last layer, activates the softmax layer
     last_activation, cache = linear_activation_forward(prev_activation=activation, w=parameters[f'W{last_layer}'],
-                                                      b=parameters[f'b{last_layer}'], activation_function="softmax")
+                                                       b=parameters[f'b{last_layer}'], activation_function="softmax",
+                                                       layer = last_layer)
 
     caches.append(cache)
 
