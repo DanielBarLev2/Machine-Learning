@@ -1,6 +1,8 @@
-from forward import initialize_parameters, l_model_forward, cross_entropy_loss
+from forward import initialize_parameters, l_model_forward, cost_forward
 from backward import l_model_backward, update_parameters
+from activation_functions import softmax
 import numpy as np
+import matplotlib.pyplot as plt
 
 def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarray, learning_rate: float,
                   num_iterations: int, batch_size: int) -> dict:
@@ -11,7 +13,7 @@ def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarr
     Batch size is selected such that it enables the code to run well.
 
     Input:
-    x_data – the input data, a numpy array of shape (height*width , number_of_examples).
+    x_input – the input data, a numpy array of shape (height*width , number_of_examples).
     y_train – the “real” labels of the data, a vector of shape (num_of_classes, number of examples).
     Layer_dims – a list containing the dimensions of each layer, including the input.
     batch_size – the number of examples in a single training batch.
@@ -35,10 +37,14 @@ def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarr
     batch_index = 0
 
     for i in range(num_iterations):
-        # iterate over l layers to get the final last last_activation and the cache
-        last_activation, caches = l_model_forward(x_data=x_train_batch[batch_index], parameters=parameters)
 
-        cost = cross_entropy_loss(last_activation=last_activation, y_train=y_train_batch[batch_index])
+        if batch_index == num_batches:
+            batch_index = 0
+
+        # iterate over l layers to get the final last last_activation and the cache
+        last_activation, caches = l_model_forward(x_input=x_train_batch[batch_index], parameters=parameters)
+
+        cost = cost_forward(last_activation=last_activation, y_train=y_train_batch[batch_index])
 
         # iterate over L-layers backward to get gradients
         gradients = l_model_backward(last_activation=last_activation, y_train=y_train_batch[batch_index], caches=caches)
@@ -46,12 +52,14 @@ def l_layer_model(x_train: np.ndarray, y_train: np.ndarray, layer_dims: np.ndarr
         # update parameters
         parameters = update_parameters(parameters, gradients, learning_rate)
 
-        batch_index += 1 
+        batch_index += 1
 
-        print(i)
+        cost_list.append(cost)
         if i % 10 == 0 and i != 0:
-            cost_list.append(cost)
             print(f'The cost after {i} iterations is: {cost}')
+
+    plt.plot(cost_list)
+    plt.show()
 
     return parameters
 
@@ -85,7 +93,7 @@ def predict(x_test: np.ndarray, y_test: np.ndarray, parameters: dict) -> str:
     the trained neural network on the data.
 
     Input:
-    x_data – the input data, a numpy array of shape (height*width, number_of_examples)
+    x_input – the input data, a numpy array of shape (height*width, number_of_examples)
     Y – the “real” labels of the data, a vector of shape (num_of_classes, number of
     examples)
     Parameters – a python dictionary containing the DNN architecture’s parameters
@@ -96,9 +104,13 @@ def predict(x_test: np.ndarray, y_test: np.ndarray, parameters: dict) -> str:
     score). Use the somax function to normalize the output values.
     """
 
-    predictions, caches = l_model_forward(x_data=x_test, parameters=parameters)
+    probs, caches = l_model_forward(x_input=x_test, parameters=parameters)
 
-    accuracy = np.mean(predictions == y_test, axis=0) / len(y_test)
+    probs = softmax(probs)
+
+    predictions, _ = np.argmax(probs, axis=1)
+
+    accuracy = np.sum(predictions == y_test, axis=0) / len(y_test)
 
     return f"The accuracy rate is: {accuracy}%."
 

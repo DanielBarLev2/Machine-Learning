@@ -1,4 +1,4 @@
-from application import l_layer_model, predict
+from model import l_layer_model, predict
 from sklearn.model_selection import KFold
 from keras.utils import to_categorical
 from keras.datasets import mnist
@@ -7,7 +7,7 @@ import numpy as np
 
 def load_dataset() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    load mnist dataset and vectorize it and encode y data as one-hot.
+    load mnist dataset and vectorize it and encode y_data data as one-hot.
     """
 
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -37,33 +37,35 @@ def normalize(x_train: np.ndarray, x_test: np.ndarray) -> tuple[np.ndarray, np.n
 
 
 def evaluate_model(x_data: np.ndarray, y_data: np.ndarray, n_folds=5):
-     """
-     prepares cross validation and evaluates model.
-     """
+    """
+    prepares cross validation folds and evaluates model for each fold.
+    """
 
-     k_fold = KFold(n_folds, shuffle=True, random_state=1)
+    k_fold = KFold(n_folds, shuffle=True, random_state=1)
 
-     parameters = []
+    parameters = []
 
-     # enumerate splits
-     for x_train_i, x_test_i in k_fold.split(x_data):
+    # enumerate splits
+    for x_train_i, x_test_i in k_fold.split(x_data):
 
-         # select rows for train and test
-         x_fold_train, y_fold_train, x_test, y_test = x_data[x_train_i].T, y_data[x_train_i].T,\
-             x_data[x_test_i].T, y_data[x_test_i].T
+        # select rows for train and test
+        x_fold_train, y_fold_train, x_test_fold, y_test_fold = x_data[x_train_i].T, y_data[x_train_i].T,\
+            x_data[x_test_i].T, y_data[x_test_i].T
 
-         # set up dimensions
-         layers_dims = np.array([x_fold_train.shape[0], 20, 7, 5, 10])
+        # set up dimensions
+        layers_dims = np.array([x_fold_train.shape[0],20, 30, 20, 10])
 
-         # train the network by folds
-         parameters = l_layer_model(x_train=x_fold_train, y_train=y_fold_train, layer_dims=layers_dims,
-                                    learning_rate=0.009, num_iterations=100)
+        # train the network by folds
+        parameters = l_layer_model(x_train=x_fold_train, y_train=y_fold_train, layer_dims=layers_dims,
+                                    learning_rate=0.009, num_iterations=100000, batch_size=16)
 
-         accuracy = predict(x_test=x_test, y_test=y_test, parameters=parameters)
+        input(" stop ")
+        accuracy = predict(x_test=x_test_fold, y_test=y_test_fold, parameters=parameters)
 
-         print(f'accuracy: {accuracy}')
+        print(f'accuracy: {accuracy}')
+        input(" stop ")
 
-     return parameters
+    return parameters
 
 
 def run():
