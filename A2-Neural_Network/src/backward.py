@@ -1,4 +1,4 @@
-from activation_functions import relu_backward, softmax_backward, softmax
+from activation_functions import relu_backward, softmax_backward
 import numpy as np
 
 def linear_backward(dz: np.ndarray, cache: tuple) -> tuple[np.array, np.ndarray, np.ndarray]:

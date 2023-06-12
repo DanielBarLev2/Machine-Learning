@@ -43,7 +43,7 @@ def linear_activation_forward(prev_activation: np.ndarray, w: np.ndarray, b: np.
     z, cache = linear_forward(activation=prev_activation, w=w, b=b, layer=layer)
 
     if activation_function.__eq__("softmax"):
-        activation, activation_cache = activation_functions.softmax(z=z)
+        activation, activation_cache = activation_functions.softmax(z)
         cache[f'z{layer}'] = activation_cache
 
         return activation, cache

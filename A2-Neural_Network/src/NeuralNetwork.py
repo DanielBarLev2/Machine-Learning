@@ -1,7 +1,8 @@
 from forward import l_model_forward, cost_forward
-from backward import l_model_backward
 from sklearn.model_selection import KFold
 from keras.utils import to_categorical
+from backward import l_model_backward
+from matplotlib import pyplot as plt
 from keras.datasets import mnist
 import numpy as np
 
@@ -33,6 +34,17 @@ class NeuralNetwork:
                 self.x_input[x_train_i], self.y_label[x_train_i], self.x_input[x_test_i], self.y_label[x_test_i]
 
             parameters = self.train(x_train=x_train_fold, y_train=y_train_fold)
+
+            if input("do you want to test the model on validation data? y/n:").__eq__("y"):
+                accuracy = self.predict(x_input=x_test_fold, y_label=y_test_fold, parameters=parameters)
+                print(f'model accuracy is: {100 * accuracy}%')
+
+            if input("continue to next fold?").__eq__("y"):
+                pass
+            else:
+                break
+
+        print("done")
 
     def train(self, x_train: np.ndarray, y_train: np.ndarray) -> dict:
         """
@@ -84,11 +96,11 @@ class NeuralNetwork:
             batch_index += 1
 
             cost_list.append(cost)
-            if i % 10 == 0 and i != 0:
+            if i % 1000 == 0 and i != 0:
                 print(f'The cost after {i} iterations is: {cost}')
-        #
-        # plt.plot(cost_list)
-        # plt.show()
+
+        plt.plot(cost_list)
+        plt.show()
 
         return parameters
 
@@ -129,6 +141,18 @@ class NeuralNetwork:
             parameters[f'b{l}'] = parameters[f'b{l}'] - self.learning_rate * gradients[f'db{l}']
 
         return parameters
+
+
+    def predict(self, x_input: np.ndarray, y_label: np.ndarray, parameters: dict) -> float:
+        """
+
+        """
+        x_input = self._prepare_x_inputs(x_input=x_input)
+        probs, _ = l_model_forward(x_input=x_input, parameters=parameters)
+        predictions = np.argmax(probs, axis=0)
+        accuracy = (predictions == y_label).sum() / len(y_label)
+
+        return accuracy
 
     @staticmethod
     def _prepare_x_inputs(x_input: np.ndarray) -> np.ndarray:
@@ -176,14 +200,3 @@ class NeuralNetwork:
             batches_y.append(batch_y)
 
         return batches_x, batches_y, num_batches
-
-
-
-# ---------------------test---------------------
-(x_train_data, y_train_data), (x_test, y_test) = mnist.load_data()
-
-model = NeuralNetwork(x_input=x_train_data, y_label=y_train_data, layer_dims=np.array([784, 20, 30, 20, 10]),
-                      learning_rate=0.009, epoch=10000, batch_size=16)
-
-model.evaluate()
-
