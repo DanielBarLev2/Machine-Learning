@@ -1,5 +1,4 @@
 from forward import l_model_forward, cost_forward
-from sklearn.model_selection import KFold
 from keras.utils import to_categorical
 from backward import l_model_backward
 from matplotlib import pyplot as plt
@@ -18,21 +17,35 @@ class NeuralNetwork:
         self.epoch = epoch
         self.batch_size = batch_size
 
+    def divide_to_folds(self, n_folds=5):
+        """
+        Description: divides input training data and labels into randomized fold.
+        In addition, prepares the data by transposing and vectorised.
+        """
+        size = len(self.x_input)
+        train_size = size * (n_folds - 1) // n_folds
+
+        x_train = self._prepare_x_inputs(x_input=self.x_input)
+        y_train = self._prepare_y_labels(y_label=self.y_label)
+
+        ordered_pairs = list(zip(x_train.T, y_train.T))
+        np.random.shuffle(ordered_pairs)
+
+        x_fold, y_fold = zip(*ordered_pairs)
+
+        x_train_fold = np.array(x_fold)[0:train_size].T
+        y_train_fold = np.array(y_fold)[0:train_size].T
+        x_test_fold = np.array(x_fold)[train_size:size].T
+        y_test_fold = np.array(y_fold)[train_size:size].T
+
+        return x_train_fold, y_train_fold, x_test_fold, y_test_fold
 
     def evaluate(self, n_folds=5):
-        """
 
-        """
-        parameters = []
+        for fold in range(n_folds):
+            x_train_fold, y_train_fold, x_test_fold, y_test_fold = self.divide_to_folds()
 
-        k_fold = KFold(n_folds, shuffle=True, random_state=1)
-
-        # divides to folds
-        for x_train_i, x_test_i in k_fold.split(self.x_input):
-
-            x_train_fold, y_train_fold, x_test_fold, y_test_fold = \
-                self.x_input[x_train_i], self.y_label[x_train_i], self.x_input[x_test_i], self.y_label[x_test_i]
-
+            print(f'Fold number #{fold + 1}')
             parameters = self.train(x_train=x_train_fold, y_train=y_train_fold)
 
             if input("do you want to test the model on validation data? y/n:").__eq__("y"):
@@ -66,8 +79,6 @@ class NeuralNetwork:
         One value is to be saved after each 100 training iteration.
         """
 
-        x_train = self._prepare_x_inputs(x_input=x_train)
-        y_train = self._prepare_y_labels(y_label=y_train)
         parameters = self.initialize_parameters()
 
         cost_list = []
@@ -104,7 +115,6 @@ class NeuralNetwork:
 
         return parameters
 
-
     def initialize_parameters(self):
         """
         Description: initialize weight matrices with random values and bias vectors with zeros.
@@ -120,7 +130,6 @@ class NeuralNetwork:
 
         return parameters
 
-
     def update_parameters(self, parameters: dict, gradients: dict) -> dict:
         """
         Description: Updates parameters using gradient descent
@@ -134,24 +143,22 @@ class NeuralNetwork:
         parameters – the updated values of the parameters object provided as input
         """
 
-        l = len(parameters) // 2
+        length = len(parameters) // 2
 
-        for l in range(1, l + 1):
-            parameters[f'W{l}'] = parameters[f'W{l}'] - self.learning_rate * gradients[f'dW{l}']
-            parameters[f'b{l}'] = parameters[f'b{l}'] - self.learning_rate * gradients[f'db{l}']
+        for layer in range(1, length + 1):
+            parameters[f'W{layer}'] = parameters[f'W{layer}'] - self.learning_rate * gradients[f'dW{layer}']
+            parameters[f'b{layer}'] = parameters[f'b{layer}'] - self.learning_rate * gradients[f'db{layer}']
 
         return parameters
-
 
     def predict(self, x_input: np.ndarray, y_label: np.ndarray, parameters: dict) -> float:
         """
 
         """
-        x_input = self._prepare_x_inputs(x_input=x_input)
         probs, _ = l_model_forward(x_input=x_input, parameters=parameters)
         predictions = np.argmax(probs, axis=0)
-        accuracy = (predictions == y_label).sum() / len(y_label)
-
+        predictions = self._prepare_y_labels(y_label=predictions)
+        accuracy = (predictions == y_label).sum() / (len(y_label[1]) * 10)
         return accuracy
 
     @staticmethod
@@ -160,12 +167,11 @@ class NeuralNetwork:
         Description: prepare inputs by vectorization, transposing and normalizing input data.
         return: input in shape [num of features in [0,1], num of samples]
         """
-        x_input =  x_input.reshape((x_input.shape[0], 28 * 28))
-        x_input =  x_input.T
-        x_input =  x_input / 255
+        x_input = x_input.reshape((x_input.shape[0], 28 * 28))
+        x_input = x_input.T
+        x_input = x_input / 255
 
         return x_input
-
 
     @staticmethod
     def _prepare_y_labels(y_label: np.ndarray) -> np.ndarray:
@@ -176,7 +182,7 @@ class NeuralNetwork:
         y_label = to_categorical(y_label, num_classes=10)
         y_label = y_label.T
 
-        return  y_label
+        return y_label
 
     @staticmethod
     def _create_batches(x_data: np.ndarray, y_data: np.ndarray, batch_size: int) -> tuple[list, list, int]:
