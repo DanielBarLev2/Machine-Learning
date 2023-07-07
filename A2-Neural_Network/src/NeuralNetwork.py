@@ -1,8 +1,6 @@
 from forward import l_model_forward, cost_forward
-from keras.utils import to_categorical
+from keras.src.utils import to_categorical
 from backward import l_model_backward
-from matplotlib import pyplot as plt
-from keras.datasets import mnist
 import numpy as np
 
 
@@ -16,6 +14,7 @@ class NeuralNetwork:
         self.learning_rate = learning_rate
         self.epoch = epoch
         self.batch_size = batch_size
+        self.parameters = {}
 
     def divide_to_folds(self, n_folds=5):
         """
@@ -42,24 +41,22 @@ class NeuralNetwork:
 
     def evaluate(self, n_folds=5):
 
+        print("training...")
+
+        accuracies = []
+
         for fold in range(n_folds):
             x_train_fold, y_train_fold, x_test_fold, y_test_fold = self.divide_to_folds()
 
-            print(f'Fold number #{fold + 1}')
-            parameters = self.train(x_train=x_train_fold, y_train=y_train_fold)
+            self.train(x_train=x_train_fold, y_train=y_train_fold)
 
-            if input("do you want to test the model on validation data? y/n:").__eq__("y"):
-                accuracy = self.predict(x_input=x_test_fold, y_label=y_test_fold, parameters=parameters)
-                print(f'model accuracy is: {100 * accuracy}%')
+            accuracy = self.predict(x_input=x_test_fold, y_label=y_test_fold)
 
-            if input("continue to next fold?").__eq__("y"):
-                pass
-            else:
-                break
+            accuracies.append(accuracy)
 
-        print("done")
+        print(f'Average success rate is: {round(sum(accuracies)/len(accuracies) * 100, 4)}%')
 
-    def train(self, x_train: np.ndarray, y_train: np.ndarray) -> dict:
+    def train(self, x_train: np.ndarray, y_train: np.ndarray):
         """
         Description: Implements L-layer neural network. All layers but the last should have the ReLU
         activation function, and the final layer will apply the softmax activation function.
@@ -79,7 +76,7 @@ class NeuralNetwork:
         One value is to be saved after each 100 training iteration.
         """
 
-        parameters = self.initialize_parameters()
+        self.initialize_parameters()
 
         cost_list = []
 
@@ -95,25 +92,21 @@ class NeuralNetwork:
             if batch_index == num_batches:
                 batch_index = 0
 
-            last_activation, caches = l_model_forward(x_input=x_train_batch[batch_index], parameters=parameters)
+            last_activation, caches = l_model_forward(x_input=x_train_batch[batch_index], parameters=self.parameters)
 
             cost = cost_forward(last_activation=last_activation, y_train=y_train_batch[batch_index])
 
             gradients = l_model_backward(last_activation=last_activation, y_train=y_train_batch[batch_index],
                                          caches=caches)
 
-            parameters = self.update_parameters(parameters=parameters, gradients=gradients)
+            self.update_parameters(gradients=gradients)
 
             batch_index += 1
 
             cost_list.append(cost)
-            if i % 1000 == 0 and i != 0:
-                print(f'The cost after {i} iterations is: {cost}')
 
-        plt.plot(cost_list)
-        plt.show()
-
-        return parameters
+        # plt.plot(cost_list)
+        # plt.show()
 
     def initialize_parameters(self):
         """
@@ -122,15 +115,12 @@ class NeuralNetwork:
 
         output: parameters - a dictionary containing the initialized w and b parameters.
         """
-        parameters = {}
 
         for layer in range(1, len(self.layer_dims)):
-            parameters[f'W{layer}'] = np.random.randn(self.layer_dims[layer], self.layer_dims[layer - 1]) * 0.1
-            parameters[f'b{layer}'] = np.zeros((self.layer_dims[layer], 1))
+            self.parameters[f'W{layer}'] = np.random.randn(self.layer_dims[layer], self.layer_dims[layer - 1]) * 0.1
+            self.parameters[f'b{layer}'] = np.zeros((self.layer_dims[layer], 1))
 
-        return parameters
-
-    def update_parameters(self, parameters: dict, gradients: dict) -> dict:
+    def update_parameters(self, gradients: dict):
         """
         Description: Updates parameters using gradient descent
 
@@ -143,19 +133,21 @@ class NeuralNetwork:
         parameters – the updated values of the parameters object provided as input
         """
 
-        length = len(parameters) // 2
+        length = len(self.parameters) // 2
 
         for layer in range(1, length + 1):
-            parameters[f'W{layer}'] = parameters[f'W{layer}'] - self.learning_rate * gradients[f'dW{layer}']
-            parameters[f'b{layer}'] = parameters[f'b{layer}'] - self.learning_rate * gradients[f'db{layer}']
+            self.parameters[f'W{layer}'] = self.parameters[f'W{layer}'] - self.learning_rate * gradients[f'dW{layer}']
+            self.parameters[f'b{layer}'] = self.parameters[f'b{layer}'] - self.learning_rate * gradients[f'db{layer}']
 
-        return parameters
-
-    def predict(self, x_input: np.ndarray, y_label: np.ndarray, parameters: dict) -> float:
+    def predict(self, x_input: np.ndarray, y_label: np.ndarray, test=False) -> float:
         """
 
         """
-        probs, _ = l_model_forward(x_input=x_input, parameters=parameters)
+        if test:
+            x_input = self._prepare_x_inputs(x_input=x_input)
+            y_label = self._prepare_y_labels(y_label=y_label)
+
+        probs, _ = l_model_forward(x_input=x_input, parameters=self.parameters)
         predictions = np.argmax(probs, axis=0)
         predictions = self._prepare_y_labels(y_label=predictions)
         accuracy = (predictions == y_label).sum() / (len(y_label[1]) * 10)

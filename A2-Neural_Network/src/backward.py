@@ -1,6 +1,7 @@
 from activation_functions import relu_backward, softmax_backward
 import numpy as np
 
+
 def linear_backward(dz: np.ndarray, cache: tuple) -> tuple[np.array, np.ndarray, np.ndarray]:
     """
     description: Implements the linear part of the backward propagation process for a single layer
@@ -46,7 +47,7 @@ def linear_activation_backward(da: np.ndarray, cache: dict, activation_function:
     """
 
     linear_cache = cache.get(f'x{layer}'), cache.get(f'W{layer}'), cache.get(f'b{layer}')
-    activation_cache =  cache.get(f'z{layer}')
+    activation_cache = cache.get(f'z{layer}')
 
     if activation_function == "softmax":
         dz = softmax_backward(da=da, activation_cache=activation_cache)
@@ -85,8 +86,8 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
     d_cost = cost_backward(last_activation=last_activation, y_train=y_train)
 
     # at the beginning layer, activates the softmax layer
-    gradients[f'dA{layer - 1}'], gradients[f'dW{layer}'], gradients[f'db{layer}'] =\
-        linear_activation_backward(da=d_cost,cache=caches[layer - 1], activation_function="softmax", layer=layer)
+    gradients[f'dA{layer - 1}'], gradients[f'dW{layer}'], gradients[f'db{layer}'] = \
+        linear_activation_backward(da=d_cost, cache=caches[layer - 1], activation_function="softmax", layer=layer)
 
     # back propagate the linear activation using relu
     for layer in range(layer - 1, 0, -1):
@@ -99,7 +100,7 @@ def l_model_backward(last_activation: np.array, y_train: np.array, caches: list)
     return gradients
 
 
-def cost_backward(last_activation: np.ndarray, y_train: np.array) ->  np.array:
+def cost_backward(last_activation: np.ndarray, y_train: np.array) -> np.array:
     """
     Description: Implement the cost function defined by equation.
     The requested cost function is categorical cross-entropy loss.

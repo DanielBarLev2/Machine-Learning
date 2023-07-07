@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def relu(z: np.array) -> tuple[np.array, np.ndarray]:
     """
     Description: Implements forward propagation for a relu unit.
@@ -68,6 +69,6 @@ def softmax_backward(da, activation_cache):
 
     raw = activation_cache
     p, z = softmax(z=raw)
-    dz = da * p * (1-p)
+    dz = da * p * (1 - p)
 
     return dz
