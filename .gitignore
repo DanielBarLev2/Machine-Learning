@@ -163,3 +163,5 @@ cython_debug/
 *.docx
 A1-KNN_Classifier/pytorch101.py
 /A2-Neural_Network/content/
+/A3-Neutal_Network/eecs598/
+
