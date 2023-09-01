@@ -150,28 +150,24 @@ def svm_loss_naive(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float
                 # gradient update for correct class.
                 d_w[:, y[i]] -= x[i]
 
-    # mean
     loss /= num_train
     d_w /= num_train
 
-    # regularization
+    # l2 regularization
     loss += reg * torch.sum(w * w)
     d_w += reg * w
 
     return loss, d_w
 
 
-def svm_loss_vectorized(
-        W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
-):
+def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float):
     """
-    Structured SVM loss function, vectorized implementation. When you implment
-    the regularization over W, please DO NOT multiply the regularization term by
-    1/2 (no coefficient). The inputs and outputs are the same as svm_loss_naive.
+    Structured SVM loss function, vectorized implementation.
+    The inputs and outputs are the same as svm_loss_naive.
 
     Inputs:
-    - W: A PyTorch tensor of shape (D, C) containing weights.
-    - X: A PyTorch tensor of shape (N, D) containing a minibatch of data.
+    - w: A PyTorch tensor of shape (D, C) containing weights.
+    - x: A PyTorch tensor of shape (N, D) containing a minibatch of data.
     - y: A PyTorch tensor of shape (N,) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
@@ -181,18 +177,22 @@ def svm_loss_vectorized(
     - gradient of loss with respect to weights W; a tensor of same shape as W
     """
     loss = 0.0
-    dW = torch.zeros_like(W)  # initialize the gradient as zero
+    d_w = torch.zeros_like(w)
+    num_classes = w.shape[1]
+    num_train = x.shape[0]
 
-    #############################################################################
-    # TODO:                                                                     #
-    # Implement a vectorized version of the structured SVM loss, storing the    #
-    # result in loss.                                                           #
-    #############################################################################
-    # Replace "pass" statement with your code
-    pass
-    #############################################################################
-    #                             END OF YOUR CODE                              #
-    #############################################################################
+    scores = x.mm(w)
+
+    # extract the correct label for each entry
+    correct_class_scores = scores[torch.arange(num_train), y]
+
+    margins = torch.max(torch.zeros_like(scores), scores - correct_class_scores.view(-1, 1) + 1)
+
+    # set the margins of the correct class to zero.
+    margins[torch.arange(num_train), y] = 0
+
+    # Calculate the SVM loss as the mean of the positive margins plus regularization.
+    loss = (torch.sum(margins) / num_train) + (reg * torch.sum(w * w))
 
     #############################################################################
     # TODO:                                                                     #
@@ -209,7 +209,7 @@ def svm_loss_vectorized(
     #                             END OF YOUR CODE                              #
     #############################################################################
 
-    return loss, dW
+    return loss, d_w
 
 
 def sample_batch(
