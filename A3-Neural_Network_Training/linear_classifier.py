@@ -1,46 +1,32 @@
-"""
-Implements linear classifeirs in PyTorch.
-WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
-"""
-import torch
-import random
-import statistics
-from abc import abstractmethod
 from typing import Dict, List, Callable, Optional
+from abc import abstractmethod
+import statistics
+import random
+import torch
 
 
-def hello_linear_classifier():
-    """
-    This is a sample function that we will try to import and run to ensure that
-    our environment is correctly set up on Google Colab.
-    """
-    print("Hello from linear_classifier.py!")
-
-
-# Template class modules that we will use later: Do not edit/modify this class
 class LinearClassifier:
-    """An abstarct class for the linear classifiers"""
+    """An abstract class for the linear classifiers"""
 
-    # Note: We will re-use `LinearClassifier' in both SVM and Softmax
     def __init__(self):
         random.seed(0)
         torch.manual_seed(0)
-        self.W = None
+        self.w = None
 
     def train(
-        self,
-        X_train: torch.Tensor,
-        y_train: torch.Tensor,
-        learning_rate: float = 1e-3,
-        reg: float = 1e-5,
-        num_iters: int = 100,
-        batch_size: int = 200,
-        verbose: bool = False,
+            self,
+            x_train: torch.Tensor,
+            y_train: torch.Tensor,
+            learning_rate: float = 1e-3,
+            reg: float = 1e-5,
+            num_iters: int = 100,
+            batch_size: int = 200,
+            verbose: bool = False,
     ):
         train_args = (
             self.loss,
-            self.W,
-            X_train,
+            self.w,
+            x_train,
             y_train,
             learning_rate,
             reg,
@@ -48,19 +34,19 @@ class LinearClassifier:
             batch_size,
             verbose,
         )
-        self.W, loss_history = train_linear_classifier(*train_args)
+        self.w, loss_history = train_linear_classifier(*train_args)
         return loss_history
 
-    def predict(self, X: torch.Tensor):
-        return predict_linear_classifier(self.W, X)
+    def predict(self, x: torch.Tensor):
+        return predict_linear_classifier(self.w, x)
 
     @abstractmethod
     def loss(
-        self,
-        W: torch.Tensor,
-        X_batch: torch.Tensor,
-        y_batch: torch.Tensor,
-        reg: float,
+            self,
+            w: torch.Tensor,
+            x_batch: torch.Tensor,
+            y_batch: torch.Tensor,
+            reg: float,
     ):
         """
         Compute the loss function and its derivative.
@@ -79,17 +65,17 @@ class LinearClassifier:
         """
         raise NotImplementedError
 
-    def _loss(self, X_batch: torch.Tensor, y_batch: torch.Tensor, reg: float):
-        self.loss(self.W, X_batch, y_batch, reg)
+    def _loss(self, x_batch: torch.Tensor, y_batch: torch.Tensor, reg: float):
+        self.loss(self.w, x_batch, y_batch, reg)
 
     def save(self, path: str):
-        torch.save({"W": self.W}, path)
+        torch.save({"W": self.w}, path)
         print("Saved in {}".format(path))
 
     def load(self, path: str):
-        W_dict = torch.load(path, map_location="cpu")
-        self.W = W_dict["W"]
-        if self.W is None:
+        w_dict = torch.load(path, map_location="cpu")
+        self.w = w_dict["W"]
+        if self.w is None:
             raise Exception("Failed to load your checkpoint")
         # print("load checkpoint file: {}".format(path))
 
@@ -98,42 +84,34 @@ class LinearSVM(LinearClassifier):
     """A subclass that uses the Multiclass SVM loss function"""
 
     def loss(
-        self,
-        W: torch.Tensor,
-        X_batch: torch.Tensor,
-        y_batch: torch.Tensor,
-        reg: float,
+            self,
+            w: torch.Tensor,
+            x_batch: torch.Tensor,
+            y_batch: torch.Tensor,
+            reg: float,
     ):
-        return svm_loss_vectorized(W, X_batch, y_batch, reg)
+        return svm_loss_vectorized(w, x_batch, y_batch, reg)
 
 
 class Softmax(LinearClassifier):
     """A subclass that uses the Softmax + Cross-entropy loss function"""
 
     def loss(
-        self,
-        W: torch.Tensor,
-        X_batch: torch.Tensor,
-        y_batch: torch.Tensor,
-        reg: float,
+            self,
+            w: torch.Tensor,
+            x_batch: torch.Tensor,
+            y_batch: torch.Tensor,
+            reg: float,
     ):
-        return softmax_loss_vectorized(W, X_batch, y_batch, reg)
+        return softmax_loss_vectorized(w, x_batch, y_batch, reg)
 
 
-# **************************************************#
-################## Section 1: SVM ##################
-# **************************************************#
-
-
-def svm_loss_naive(
-    W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
-):
+def svm_loss_naive(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float):
     """
     Structured SVM loss function, naive implementation (with loops).
 
-    Inputs have dimension D, there are C classes, and we operate on minibatches
-    of N examples. When you implment the regularization over W, please DO NOT
-    multiply the regularization term by 1/2 (no coefficient).
+    Inputs have dimension D, there are C classes, and we operate on mini-batches
+    of N examples.
 
     Inputs:
     - W: A PyTorch tensor of shape (D, C) containing weights.
@@ -146,57 +124,45 @@ def svm_loss_naive(
     - loss as torch scalar
     - gradient of loss with respect to weights W; a tensor of same shape as W
     """
-    dW = torch.zeros_like(W)  # initialize the gradient as zero
 
-    # compute the loss and the gradient
-    num_classes = W.shape[1]
-    num_train = X.shape[0]
     loss = 0.0
+    d_w = torch.zeros_like(w)
+
+    num_classes = w.shape[1]
+    num_train = x.shape[0]
+
     for i in range(num_train):
-        scores = W.t().mv(X[i])
+        scores = w.t().mv(x[i])
         correct_class_score = scores[y[i]]
+
         for j in range(num_classes):
+
             if j == y[i]:
                 continue
-            margin = scores[j] - correct_class_score + 1  # note delta = 1
+
+            # compares all incorrect labels' scores to the correct label score
+            margin = scores[j] - correct_class_score + 1
+
             if margin > 0:
                 loss += margin
-                #######################################################################
-                # TODO:                                                               #
-                # Compute the gradient of the SVM term of the loss function and store #
-                # it on dW. (part 1) Rather than first computing the loss and then    #
-                # computing the derivative, it is simple to compute the derivative    #
-                # at the same time that the loss is being computed.                   #
-                #######################################################################
-                # Replace "pass" statement with your code
-                pass
-                #######################################################################
-                #                       END OF YOUR CODE                              #
-                #######################################################################
+                # gradient update for incorrect class.
+                d_w[:, j] += x[i]
+                # gradient update for correct class.
+                d_w[:, y[i]] -= x[i]
 
-    # Right now the loss is a sum over all training examples, but we want it
-    # to be an average instead so we divide by num_train.
+    # mean
     loss /= num_train
+    d_w /= num_train
 
-    # Add regularization to the loss.
-    loss += reg * torch.sum(W * W)
+    # regularization
+    loss += reg * torch.sum(w * w)
+    d_w += reg * w
 
-    #############################################################################
-    # TODO:                                                                     #
-    # Compute the gradient of the loss function w.r.t. the regularization term  #
-    # and add it to dW. (part 2)                                                #
-    #############################################################################
-    # Replace "pass" statement with your code
-    pass
-    #############################################################################
-    #                             END OF YOUR CODE                              #
-    #############################################################################
-
-    return loss, dW
+    return loss, d_w
 
 
 def svm_loss_vectorized(
-    W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
+        W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
 ):
     """
     Structured SVM loss function, vectorized implementation. When you implment
@@ -247,7 +213,7 @@ def svm_loss_vectorized(
 
 
 def sample_batch(
-    X: torch.Tensor, y: torch.Tensor, num_train: int, batch_size: int
+        X: torch.Tensor, y: torch.Tensor, num_train: int, batch_size: int
 ):
     """
     Sample batch_size elements from the training data and their
@@ -271,15 +237,15 @@ def sample_batch(
 
 
 def train_linear_classifier(
-    loss_func: Callable,
-    W: torch.Tensor,
-    X: torch.Tensor,
-    y: torch.Tensor,
-    learning_rate: float = 1e-3,
-    reg: float = 1e-5,
-    num_iters: int = 100,
-    batch_size: int = 200,
-    verbose: bool = False,
+        loss_func: Callable,
+        W: torch.Tensor,
+        X: torch.Tensor,
+        y: torch.Tensor,
+        learning_rate: float = 1e-3,
+        reg: float = 1e-5,
+        num_iters: int = 100,
+        batch_size: int = 200,
+        verbose: bool = False,
 ):
     """
     Train this linear classifier using stochastic gradient descent.
@@ -397,11 +363,11 @@ def svm_get_search_params():
 
 
 def test_one_param_set(
-    cls: LinearClassifier,
-    data_dict: Dict[str, torch.Tensor],
-    lr: float,
-    reg: float,
-    num_iters: int = 2000,
+        cls: LinearClassifier,
+        data_dict: Dict[str, torch.Tensor],
+        lr: float,
+        reg: float,
+        num_iters: int = 2000,
 ):
     """
     Train a single LinearClassifier instance and return the learned instance
@@ -454,7 +420,7 @@ def test_one_param_set(
 
 
 def softmax_loss_naive(
-    W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
+        W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
 ):
     """
     Softmax loss function, naive implementation (with loops).  When you implment
@@ -496,7 +462,7 @@ def softmax_loss_naive(
 
 
 def softmax_loss_vectorized(
-    W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
+        W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
 ):
     """
     Softmax loss function, vectorized version.  When you implment the
