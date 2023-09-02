@@ -176,38 +176,30 @@ def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: 
     - loss as torch scalar
     - gradient of loss with respect to weights W; a tensor of same shape as W
     """
-    loss = 0.0
-    d_w = torch.zeros_like(w)
-    num_classes = w.shape[1]
+
     num_train = x.shape[0]
 
     scores = x.mm(w)
 
-    # extract the correct label for each entry
+    # extract from each sample the correct label [num_train]
     correct_class_scores = scores[torch.arange(num_train), y]
 
+    # subtract from each sample prediction value, the correct sample prediction value - 1
     margins = torch.max(torch.zeros_like(scores), scores - correct_class_scores.view(-1, 1) + 1)
 
-    # set the margins of the correct class to zero.
+    # init each samples' correct prediction value
     margins[torch.arange(num_train), y] = 0
 
     # Calculate the SVM loss as the mean of the positive margins plus regularization.
     loss = (torch.sum(margins) / num_train) + (reg * torch.sum(w * w))
 
-    #############################################################################
-    # TODO:                                                                     #
-    # Implement a vectorized version of the gradient for the structured SVM     #
-    # loss, storing the result in dW.                                           #
-    #                                                                           #
-    # Hint: Instead of computing the gradient from scratch, it may be easier    #
-    # to reuse some of the intermediate values that you used to compute the     #
-    # loss.                                                                     #
-    #############################################################################
-    # Replace "pass" statement with your code
-    pass
-    #############################################################################
-    #                             END OF YOUR CODE                              #
-    #############################################################################
+    adj_margins = margins
+    adj_margins[adj_margins > 0] = 1
+    adj_margins[torch.arange(num_train), y] = - adj_margins.sum(dim=1)
+
+    d_w = x.t().mm(adj_margins)
+    d_w /= num_train
+    d_w += reg * w
 
     return loss, d_w
 
