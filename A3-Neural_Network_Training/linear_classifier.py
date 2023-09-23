@@ -1,6 +1,5 @@
-from typing import Dict, List, Callable, Optional
+from typing import Dict, Callable
 from abc import abstractmethod
-import statistics
 import random
 import torch
 
@@ -56,14 +55,14 @@ class LinearClassifier:
         - W: A PyTorch tensor of shape (D, C) containing (trained) weight of a model.
         - X_batch: A PyTorch tensor of shape (N, D) containing a minibatch of N
           data points; each point has dimension D.
-        - y_batch: A PyTorch tensor of shape (N,) containing labels for the minibatch.
+        - y_batch: A PyTorch tensor of shape (N, ) containing labels for the minibatch.
         - reg: (float) regularization strength.
 
         Returns: A tuple containing:
         - loss as a single float
-        - gradient with respect to self.W; an tensor of the same shape as W
+        - gradient with respect to self.W; a tensor of the same shape as W
         """
-        raise NotImplementedError
+        return svm_loss_vectorized(w=w, x=x_batch, y=y_batch, reg=reg)
 
     def _loss(self, x_batch: torch.Tensor, y_batch: torch.Tensor, reg: float):
         self.loss(self.w, x_batch, y_batch, reg)
@@ -116,7 +115,7 @@ def svm_loss_naive(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float
     Inputs:
     - W: A PyTorch tensor of shape (D, C) containing weights.
     - X: A PyTorch tensor of shape (N, D) containing a minibatch of data.
-    - y: A PyTorch tensor of shape (N,) containing training labels; y[i] = c means
+    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
 
@@ -323,8 +322,7 @@ def test_one_param_set(cls: LinearClassifier,
                        data_dict: Dict[str, torch.Tensor],
                        lr: float,
                        reg: float,
-                       num_iters: int = 2000,
-):
+                       num_iters: int = 2000):
     """
     Train a single LinearClassifier instance and return the learned instance
     with train/val accuracy.
@@ -335,8 +333,8 @@ def test_one_param_set(cls: LinearClassifier,
     - data_dict (dict): a dictionary that includes
                         ['X_train', 'y_train', 'X_val', 'y_val']
                         as the keys for training a classifier
-    - lr (float): learning rate parameter for training a SVM instance.
-    - reg (float): a regularization weight for training a SVM instance.
+    - lr (float): learning rate parameter for training SVM instance.
+    - reg (float): a regularization weight for training SVM instance.
     - num_iters (int, optional): a number of iterations to train
 
     Returns:
@@ -346,28 +344,19 @@ def test_one_param_set(cls: LinearClassifier,
     - train_acc (float): training accuracy of the svm_model
     - val_acc (float): validation accuracy of the svm_model
     """
-    train_acc = 0.0  # The accuracy is simply the fraction of data points
-    val_acc = 0.0  # that are correctly classified.
-    ###########################################################################
-    # TODO:                                                                   #
-    # Write code that, train a linear SVM on the training set, compute its    #
-    # accuracy on the training and validation sets                            #
-    #                                                                         #
-    # Hint: Once you are confident that your validation code works, you       #
-    # should rerun the validation code with the final value for num_iters.    #
-    # Before that, please test with small num_iters first                     #
-    ###########################################################################
-    # Feel free to uncomment this, at the very beginning,
-    # and don't forget to remove this line before submitting your final version
-    # num_iters = 100
 
-    # Replace "pass" statement with your code
-    pass
-    ############################################################################
-    #                            END OF YOUR CODE                              #
-    ############################################################################
+    x_train, y_train, x_val, y_val = data_dict['X_train'], data_dict['y_train'], data_dict['X_val'], data_dict['y_val']
 
-    return cls, train_acc, val_acc
+    linear_classifier = LinearClassifier()
+    linear_classifier.train(x_train=x_train, y_train=y_train, learning_rate=lr, reg=reg, num_iters=num_iters)
+
+    y_train_pred = linear_classifier.predict(x_train)
+    train_acc = 100.0 * (y_train == y_train_pred).double().mean().item()
+
+    y_val_pred = linear_classifier.predict(x_val)
+    val_acc = 100.0 * (y_val == y_val_pred).double().mean().item()
+
+    return linear_classifier, train_acc, val_acc
 
 
 # **************************************************#
@@ -389,13 +378,13 @@ def softmax_loss_naive(
     Inputs:
     - W: A PyTorch tensor of shape (D, C) containing weights.
     - X: A PyTorch tensor of shape (N, D) containing a minibatch of data.
-    - y: A PyTorch tensor of shape (N,) containing training labels; y[i] = c means
+    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
 
     Returns a tuple of:
     - loss as single float
-    - gradient with respect to weights W; an tensor of same shape as W
+    - gradient with respect to weights W; a tensor of same shape as W
     """
     # Initialize the loss and gradient to zero.
     loss = 0.0
