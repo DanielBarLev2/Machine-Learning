@@ -168,7 +168,7 @@ def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: 
     Inputs:
     - w: A PyTorch tensor of shape (D, C) containing weights.
     - x: A PyTorch tensor of shape (N, D) containing a minibatch of data.
-    - y: A PyTorch tensor of shape (N,) containing training labels; y[i] = c means
+    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
 
@@ -179,66 +179,59 @@ def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: 
 
     num_train = x.shape[0]
 
-    scores = x.mm(w)
+    predicted_labels = x.mm(w)
 
-    # extract from each sample the correct label [num_train]
-    correct_class_scores = scores[torch.arange(num_train), y]
+    true_labels = predicted_labels[torch.arange(num_train), y]
 
     # subtract from each sample prediction value, the correct sample prediction value - 1
-    margins = torch.max(torch.zeros_like(scores), scores - correct_class_scores.view(-1, 1) + 1)
+    margins = torch.max(torch.zeros_like(predicted_labels), predicted_labels - true_labels.view(-1, 1) + 1)
 
     # init each samples' correct prediction value
     margins[torch.arange(num_train), y] = 0
 
-    # Calculate the SVM loss as the mean of the positive margins plus regularization.
-    loss = (torch.sum(margins) / num_train) + (reg * torch.sum(w * w))
-
+    # calculate the SVM loss as the mean of the positive margins plus L2 regularization.
+    loss = torch.sum(margins) / num_train + reg * torch.sum(w * w)
+    
     adj_margins = margins
     adj_margins[adj_margins > 0] = 1
     adj_margins[torch.arange(num_train), y] = - adj_margins.sum(dim=1)
 
     d_w = x.t().mm(adj_margins)
-    d_w /= num_train
-    d_w += reg * w
+    d_w = d_w / num_train + reg * w
 
     return loss, d_w
 
 
-def sample_batch(
-        X: torch.Tensor, y: torch.Tensor, num_train: int, batch_size: int
-):
+def sample_batch(x: torch.Tensor, y: torch.Tensor, batch_size: int):
     """
     Sample batch_size elements from the training data and their
     corresponding labels to use in this round of gradient descent.
+
+    return x_batch, y_batch
     """
-    X_batch = None
-    y_batch = None
-    #########################################################################
-    # TODO: Store the data in X_batch and their corresponding labels in     #
-    # y_batch; after sampling, X_batch should have shape (batch_size, dim)  #
-    # and y_batch should have shape (batch_size,)                           #
-    #                                                                       #
-    # Hint: Use torch.randint to generate indices.                          #
-    #########################################################################
-    # Replace "pass" statement with your code
-    pass
-    #########################################################################
-    #                       END OF YOUR CODE                                #
-    #########################################################################
-    return X_batch, y_batch
+
+    num_samples = x.shape[0]
+
+    # Randomly select indices for the mini-batch.
+    batch_indices = torch.randperm(num_samples)[:batch_size]
+
+    # Extract the mini-batch data and labels based on the selected indices.
+    x_batch = x[batch_indices]
+    y_batch = y[batch_indices]
+
+    return x_batch, y_batch
 
 
-def train_linear_classifier(
-        loss_func: Callable,
-        W: torch.Tensor,
-        X: torch.Tensor,
-        y: torch.Tensor,
-        learning_rate: float = 1e-3,
-        reg: float = 1e-5,
-        num_iters: int = 100,
-        batch_size: int = 200,
-        verbose: bool = False,
-):
+def train_linear_classifier(loss_func: Callable,
+                            w: torch.Tensor,
+                            x: torch.Tensor,
+                            y: torch.Tensor,
+                            learning_rate: float = 1e-3,
+                            reg: float = 1e-5,
+                            num_iters: int = 100,
+                            batch_size: int = 200,
+                            verbose: bool = False):
+
     """
     Train this linear classifier using stochastic gradient descent.
 
@@ -249,7 +242,7 @@ def train_linear_classifier(
       classifier. If W is None then it will be initialized here.
     - X: A PyTorch tensor of shape (N, D) containing training data; there are N
       training samples each of dimension D.
-    - y: A PyTorch tensor of shape (N,) containing training labels; y[i] = c
+    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c
       means that X[i] has label 0 <= c < C for C classes.
     - learning_rate: (float) learning rate for optimization.
     - reg: (float) regularization strength.
@@ -262,59 +255,48 @@ def train_linear_classifier(
     - loss_history: A list of Python scalars giving the values of the loss at each
       training iteration.
     """
-    # assume y takes values 0...K-1 where K is number of classes
-    num_train, dim = X.shape
-    if W is None:
-        # lazily initialize W
-        num_classes = torch.max(y) + 1
-        W = 0.000001 * torch.randn(
-            dim, num_classes, device=X.device, dtype=X.dtype
-        )
-    else:
-        num_classes = W.shape[1]
 
-    # Run stochastic gradient descent to optimize W
+    # initialize w
+    if w is None:
+        data_size = x.shape[1]
+        class_num = y.max() + 1
+        normalizer = 0.000001
+
+        w = normalizer * torch.randn(data_size, class_num, device=x.device, dtype=x.dtype)
+
     loss_history = []
-    for it in range(num_iters):
-        # TODO: implement sample_batch function
-        X_batch, y_batch = sample_batch(X, y, num_train, batch_size)
 
-        # evaluate loss and gradient
-        loss, grad = loss_func(W, X_batch, y_batch, reg)
-        loss_history.append(loss.item())
+    # stochastic gradient descent
+    for epoch in range(num_iters):
 
-        # perform parameter update
-        #########################################################################
-        # TODO:                                                                 #
-        # Update the weights using the gradient and the learning rate.          #
-        #########################################################################
-        # Replace "pass" statement with your code
-        pass
-        #########################################################################
-        #                       END OF YOUR CODE                                #
-        #########################################################################
+        x_batch, y_batch = sample_batch(x=x, y=y, batch_size=batch_size)
 
-        if verbose and it % 100 == 0:
-            print("iteration %d / %d: loss %f" % (it, num_iters, loss))
+        loss, d_w = loss_func(w, x_batch, y_batch, reg)
+        w -= learning_rate * d_w
 
-    return W, loss_history
+        if epoch % 100 == 0:
+            loss_history.append(loss)
+
+            if verbose:
+                print("iteration %d / %d: loss %f" % (epoch, num_iters, loss))
+
+    return w, loss_history
 
 
-def predict_linear_classifier(W: torch.Tensor, X: torch.Tensor):
+def predict_linear_classifier(w: torch.Tensor, x: torch.Tensor):
     """
     Use the trained weights of this linear classifier to predict labels for
     data points.
 
     Inputs:
-    - W: A PyTorch tensor of shape (D, C), containing weights of a model
-    - X: A PyTorch tensor of shape (N, D) containing training data; there are N
-      training samples each of dimension D.
+    - w: A PyTorch tensor of shape (D, C), containing weights of a model
+    - x: A PyTorch tensor of shape (N, D) containing training data; there are N training samples each of dimension D.
 
     Returns:
-    - y_pred: PyTorch int64 tensor of shape (N,) giving predicted labels for each
-      elemment of X. Each element of y_pred should be between 0 and C - 1.
+    - y_pred: PyTorch int64 tensor of shape (N, ) giving predicted labels for each
+      element of x. Each element of y_pred should be between 0 and C - 1.
     """
-    y_pred = torch.zeros(X.shape[0], dtype=torch.int64)
+    y_pred = torch.zeros(x.shape[0], dtype=torch.int64)
     ###########################################################################
     # TODO:                                                                   #
     # Implement this method. Store the predicted labels in y_pred.            #
@@ -415,11 +397,11 @@ def softmax_loss_naive(
         W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
 ):
     """
-    Softmax loss function, naive implementation (with loops).  When you implment
+    Softmax-loss function, naive implementation (with loops).  When you implement
     the regularization over W, please DO NOT multiply the regularization term by
     1/2 (no coefficient).
 
-    Inputs have dimension D, there are C classes, and we operate on minibatches
+    Inputs have dimension D, there are C classes, and we operate on mini-batches
     of N examples.
 
     Inputs:
@@ -457,7 +439,7 @@ def softmax_loss_vectorized(
         W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
 ):
     """
-    Softmax loss function, vectorized version.  When you implment the
+    Softmax-loss function, vectorized version.  When you implement the
     regularization over W, please DO NOT multiply the regularization term by 1/2
     (no coefficient).
 
