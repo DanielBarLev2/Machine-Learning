@@ -296,16 +296,9 @@ def predict_linear_classifier(w: torch.Tensor, x: torch.Tensor):
     - y_pred: PyTorch int64 tensor of shape (N, ) giving predicted labels for each
       element of x. Each element of y_pred should be between 0 and C - 1.
     """
-    y_pred = torch.zeros(x.shape[0], dtype=torch.int64)
-    ###########################################################################
-    # TODO:                                                                   #
-    # Implement this method. Store the predicted labels in y_pred.            #
-    ###########################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                           END OF YOUR CODE                              #
-    ###########################################################################
+
+    y_pred = torch.argmax(x.mm(w), dim=1)
+
     return y_pred
 
 
@@ -316,32 +309,21 @@ def svm_get_search_params():
     should be less than 25.
 
     Returns:
-    - learning_rates: learning rate candidates, e.g. [1e-3, 1e-2, ...]
-    - regularization_strengths: regularization strengths candidates
-                                e.g. [1e0, 1e1, ...]
+    - learning_rates: learning rate candidates.
+    - regularization_strengths: regularization strengths candidates, e.g.
     """
 
-    learning_rates = []
-    regularization_strengths = []
-
-    ###########################################################################
-    # TODO:   add your own hyper parameter lists.                             #
-    ###########################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                           END OF YOUR CODE                              #
-    ###########################################################################
+    learning_rates = [0.1, 0.01, 0.001, 0.0001, 0.00001]
+    regularization_strengths = [1, 10, 100, 1000, 10000]
 
     return learning_rates, regularization_strengths
 
 
-def test_one_param_set(
-        cls: LinearClassifier,
-        data_dict: Dict[str, torch.Tensor],
-        lr: float,
-        reg: float,
-        num_iters: int = 2000,
+def test_one_param_set(cls: LinearClassifier,
+                       data_dict: Dict[str, torch.Tensor],
+                       lr: float,
+                       reg: float,
+                       num_iters: int = 2000,
 ):
     """
     Train a single LinearClassifier instance and return the learned instance
