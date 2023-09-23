@@ -190,7 +190,7 @@ def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: 
 
     # calculate the SVM loss as the mean of the positive margins plus L2 regularization.
     loss = torch.sum(margins) / num_train + reg * torch.sum(w * w)
-    
+
     adj_margins = margins
     adj_margins[adj_margins > 0] = 1
     adj_margins[torch.arange(num_train), y] = - adj_margins.sum(dim=1)
@@ -230,7 +230,6 @@ def train_linear_classifier(loss_func: Callable,
                             num_iters: int = 100,
                             batch_size: int = 200,
                             verbose: bool = False):
-
     """
     Train this linear classifier using stochastic gradient descent.
 
@@ -347,26 +346,23 @@ def test_one_param_set(cls: LinearClassifier,
 
     x_train, y_train, x_val, y_val = data_dict['X_train'], data_dict['y_train'], data_dict['X_val'], data_dict['y_val']
 
-    linear_classifier = LinearClassifier()
-    linear_classifier.train(x_train=x_train, y_train=y_train, learning_rate=lr, reg=reg, num_iters=num_iters)
+    cls.train(x_train=x_train, y_train=y_train, learning_rate=lr, reg=reg, num_iters=num_iters)
 
-    y_train_pred = linear_classifier.predict(x_train)
+    y_train_pred = cls.predict(x_train)
     train_acc = 100.0 * (y_train == y_train_pred).double().mean().item()
 
-    y_val_pred = linear_classifier.predict(x_val)
+    y_val_pred = cls.predict(x_val)
     val_acc = 100.0 * (y_val == y_val_pred).double().mean().item()
 
-    return linear_classifier, train_acc, val_acc
+    return cls, train_acc, val_acc
 
 
-# **************************************************#
-################ Section 2: Softmax ################
-# **************************************************#
+# ******************* #
+# Section 2: Softmax  #
+# ******************* #
 
 
-def softmax_loss_naive(
-        W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
-):
+def softmax_loss_naive(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float):
     """
     Softmax-loss function, naive implementation (with loops).  When you implement
     the regularization over W, please DO NOT multiply the regularization term by
@@ -386,29 +382,47 @@ def softmax_loss_naive(
     - loss as single float
     - gradient with respect to weights W; a tensor of same shape as W
     """
-    # Initialize the loss and gradient to zero.
-    loss = 0.0
-    dW = torch.zeros_like(W)
+    num_samples = x.shape[0]
+    num_classes = w.shape[1]
 
-    #############################################################################
-    # TODO: Compute the softmax loss and its gradient using explicit loops.     #
-    # Store the loss in loss and the gradient in dW. If you are not careful     #
-    # here, it is easy to run into numeric instability (Check Numeric Stability #
-    # in http://cs231n.github.io/linear-classify/). Plus, don't forget the      #
-    # regularization!                                                           #
-    #############################################################################
-    # Replace "pass" statement with your code
-    pass
-    #############################################################################
-    #                          END OF YOUR CODE                                 #
-    #############################################################################
+    d_w = torch.zeros_like(w)
+    scores = torch.zeros_like(x.mm(w))
+    loss = 0
 
-    return loss, dW
+    # create a one-hot tensor
+    y_hot = torch.zeros_like(x.mm(w))
+    y_hot[torch.arange(y.shape[0]), y] = 1
+
+    # iterate through train samples
+    for i in range(num_samples):
+        scores[i] = w.t().mv(x[i])
+        sum_exp_scores = 0
+
+        # iterate through classes scores and computes sum_exp_scores
+        for j in range(num_classes):
+            sum_exp_scores += torch.exp(scores[i][j])
+
+        # iterate through classes and divides by sum_exp_scores
+        for k in range(num_classes):
+            scores[i][k] = torch.exp(scores[i][k]) / sum_exp_scores
+
+        # compute gradient
+        for h in range(num_classes):
+            d_w[:, h] += (scores[i][h] - y_hot[i][h]) * x[i].t()
+
+    # compute loss
+    for i in range(num_samples):
+        true_class = y[i]
+        loss -= float(torch.log(scores[i][true_class]))
+
+    # normalize and regularization
+    loss = float(loss / num_samples + reg * torch.sum(w * w))
+    d_w = d_w / num_samples + reg * torch.sum(w * w)
+
+    return loss, d_w
 
 
-def softmax_loss_vectorized(
-        W: torch.Tensor, X: torch.Tensor, y: torch.Tensor, reg: float
-):
+def softmax_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float):
     """
     Softmax-loss function, vectorized version.  When you implement the
     regularization over W, please DO NOT multiply the regularization term by 1/2
@@ -416,24 +430,29 @@ def softmax_loss_vectorized(
 
     Inputs and outputs are the same as softmax_loss_naive.
     """
-    # Initialize the loss and gradient to zero.
-    loss = 0.0
-    dW = torch.zeros_like(W)
+    num_samples = x.shape[0]
 
-    #############################################################################
-    # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
-    # Store the loss in loss and the gradient in dW. If you are not careful     #
-    # here, it is easy to run into numeric instability (Check Numeric Stability #
-    # in http://cs231n.github.io/linear-classify/). Don't forget the            #
-    # regularization!                                                           #
-    #############################################################################
-    # Replace "pass" statement with your code
-    pass
-    #############################################################################
-    #                          END OF YOUR CODE                                 #
-    #############################################################################
+    # create a one-hot tensor
+    y_hot = torch.zeros_like(x.mm(w))
+    y_hot[torch.arange(y.shape[0]), y] = 1
 
-    return loss, dW
+    scores = x.mm(w)
+
+    # shift the scores to prevent numerical instability.
+    scores += scores.max(dim=1, keepdim=True)[0]
+
+    # compute loss
+    exp_scores = torch.exp(scores)
+    probabilities = exp_scores / exp_scores.sum(dim=1, keepdim=True)
+    loss = torch.sum(-torch.log(probabilities[torch.arange(num_samples), y]))
+
+    # compute gradient
+    d_w = x.t().mm(probabilities - y_hot)
+
+    # normalize and regularization
+    loss = loss / num_samples + reg * torch.sum(w * w)
+    d_w = d_w / num_samples + reg * torch.sum(w * w)
+    return loss, d_w
 
 
 def softmax_get_search_params():
@@ -447,19 +466,7 @@ def softmax_get_search_params():
     - regularization_strengths: regularization strengths candidates
                                 e.g. [1e0, 1e1, ...]
     """
-    learning_rates = []
-    regularization_strengths = []
-
-    ###########################################################################
-    # TODO: Add your own hyper parameter lists. This should be similar to the #
-    # hyperparameters that you used for the SVM, but you may need to select   #
-    # different hyperparameters to achieve good performance with the softmax  #
-    # classifier.                                                             #
-    ###########################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                           END OF YOUR CODE                              #
-    ###########################################################################
+    learning_rates = [0.00001, 0.00008, 0.000006, 0.000004, 0.000002]
+    regularization_strengths = [2, 4, 6, 8, 10]
 
     return learning_rates, regularization_strengths
