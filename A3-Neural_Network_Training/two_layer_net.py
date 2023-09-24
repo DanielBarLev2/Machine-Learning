@@ -1,20 +1,7 @@
-"""
-Implements a two-layer Neural Network classifier in PyTorch.
-WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
-"""
-import torch
-import random
-import statistics
+from typing import Dict, Callable, Optional
 from linear_classifier import sample_batch
-from typing import Dict, List, Callable, Optional
-
-
-def hello_two_layer_net():
-    """
-    This is a sample function that we will try to import and run to ensure that
-    our environment is correctly set up on Google Colab.
-    """
-    print("Hello from two_layer_net.py!")
+import random
+import torch
 
 
 # Template class modules that we will use later: Do not edit/modify this class
@@ -108,7 +95,7 @@ class TwoLayerNet(object):
         # print("load checkpoint file: {}".format(path))
 
 
-def nn_forward_pass(params: Dict[str, torch.Tensor], X: torch.Tensor):
+def nn_forward_pass(params: Dict[str, torch.Tensor], x: torch.Tensor):
     """
     The first stage of our neural network implementation: Run the forward pass
     of the network to compute the hidden layer features and classification
@@ -121,46 +108,38 @@ def nn_forward_pass(params: Dict[str, torch.Tensor], X: torch.Tensor):
 
     Inputs:
     - params: a dictionary of PyTorch Tensor that store the weights of a model.
-      It should have following keys with shape
+      It should have the following keys with shape
           W1: First layer weights; has shape (D, H)
-          b1: First layer biases; has shape (H,)
+          b1: First layer biases; has shape (H, )
           W2: Second layer weights; has shape (H, C)
-          b2: Second layer biases; has shape (C,)
-    - X: Input data of shape (N, D). Each X[i] is a training sample.
+          b2: Second layer biases; has shape (C, )
+    - x: Input data of shape (N, D). Each X[i] is a training sample.
 
     Returns a tuple of:
     - scores: Tensor of shape (N, C) giving the classification scores for X
     - hidden: Tensor of shape (N, H) giving the hidden layer representation
       for each input value (after the ReLU).
     """
-    # Unpack variables from the params dictionary
-    W1, b1 = params["W1"], params["b1"]
-    W2, b2 = params["W2"], params["b2"]
-    N, D = X.shape
 
-    # Compute the forward pass
-    hidden = None
-    scores = None
-    ############################################################################
-    # TODO: Perform the forward pass, computing the class scores for the input.#
-    # Store the result in the scores variable, which should be an tensor of    #
-    # shape (N, C).                                                            #
-    ############################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    # unpack variables from the params dictionary
+    w1, b1 = params["W1"], params["b1"]
+    w2, b2 = params["W2"], params["b2"]
+
+    # compute the forward pass
+    hidden = x.mm(w1) + b1
+
+    # relu
+    hidden[hidden < 0] = 0
+
+    scores = hidden.mm(w2) + b2
 
     return scores, hidden
 
 
-def nn_forward_backward(
-    params: Dict[str, torch.Tensor],
-    X: torch.Tensor,
-    y: Optional[torch.Tensor] = None,
-    reg: float = 0.0
-):
+def nn_forward_backward(params: Dict[str, torch.Tensor],
+                        x: torch.Tensor,
+                        y: Optional[torch.Tensor] = None,
+                        reg: float = 0.0):
     """
     Compute the loss and gradients for a two layer fully connected neural
     network. When you implement loss and gradient, please don't forget to
@@ -168,12 +147,12 @@ def nn_forward_backward(
 
     Inputs: First two parameters (params, X) are same as nn_forward_pass
     - params: a dictionary of PyTorch Tensor that store the weights of a model.
-      It should have following keys with shape
+      It should have the following keys with shape
           W1: First layer weights; has shape (D, H)
-          b1: First layer biases; has shape (H,)
+          b1: First layer biases; has shape (H, )
           W2: Second layer weights; has shape (H, C)
-          b2: Second layer biases; has shape (C,)
-    - X: Input data of shape (N, D). Each X[i] is a training sample.
+          b2: Second layer biases; has shape (C, )
+    - x: Input data of shape (N, D). Each X[i] is a training sample.
     - y: Vector of training labels. y[i] is the label for X[i], and each y[i] is
       an integer in the range 0 <= y[i] < C. This parameter is optional; if it
       is not passed then we only return scores, and if it is passed then we
@@ -191,45 +170,48 @@ def nn_forward_backward(
       with respect to the loss function; has the same keys as self.params.
     """
     # Unpack variables from the params dictionary
-    W1, b1 = params["W1"], params["b1"]
-    W2, b2 = params["W2"], params["b2"]
-    N, D = X.shape
+    w1, b1 = params["W1"], params["b1"]
+    w2, b2 = params["W2"], params["b2"]
 
-    scores, h1 = nn_forward_pass(params, X)
+    num_samples = x.shape[0]
+
+    scores, h1 = nn_forward_pass(params, x)
+
     # If the targets are not given then jump out, we're done
     if y is None:
         return scores
 
     # Compute the loss
-    loss = None
-    ############################################################################
-    # TODO: Compute the loss, based on the results from nn_forward_pass.       #
-    # This should include both the data loss and L2 regularization for W1 and  #
-    # W2. Store the result in the variable loss, which should be a scalar. Use #
-    # the Softmax classifier loss. When you implment the regularization over W,#
-    # please DO NOT multiply the regularization term by 1/2 (no coefficient).  #
-    # If you are not careful here, it is easy to run into numeric instability  #
-    # (Check Numeric Stability in http://cs231n.github.io/linear-classify/).   #
-    ############################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+
+    # shift the scores to prevent numerical instability.
+    scores += scores.max(dim=1, keepdim=True)[0]
+
+    # compute loss
+    exp_scores = torch.exp(scores)
+    probabilities = exp_scores / exp_scores.sum(dim=1, keepdim=True)
+    loss = torch.sum(-torch.log(probabilities[torch.arange(num_samples), y]))
+
+    # normalize and regularization
+    loss = loss / num_samples + reg * (torch.sum(w1 * w1) + torch.sum(w2 * w2))
 
     # Backward pass: compute gradients
     grads = {}
-    ###########################################################################
-    # TODO: Compute the backward pass, computing the derivatives of the       #
-    # weights and biases. Store the results in the grads dictionary.          #
-    # For example, grads['W1'] should store the gradient on W1, and be a      #
-    # tensor of same size                                                     #
-    ###########################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+
+    # create a one-hot tensor
+    y_hot = torch.zeros_like(h1.mm(w2))
+    y_hot[torch.arange(y.shape[0]), y] = 1
+
+    # compute gradients
+    dz2 = probabilities - y_hot
+    dw2 = (1 / num_samples) * h1.t().mm(dz2)
+    db2 = (1 / num_samples) * dz2.sum(dim=0, keepdims=True)
+    da1 = dz2.mm(w2.t())
+    dz1 = da1 * (h1 > 0)
+    dw1 = (1 / num_samples) * x.t().mm(dz1)
+    db1 = (1 / num_samples) * dz1.sum(dim=0, keepdims=True)
+
+    grads["W1"], grads["b1"] = dw1, db1
+    grads["W2"], grads["b2"] = dw2, db2
 
     return loss, grads
 
@@ -238,9 +220,9 @@ def nn_train(
     params: Dict[str, torch.Tensor],
     loss_func: Callable,
     pred_func: Callable,
-    X: torch.Tensor,
+    x: torch.Tensor,
     y: torch.Tensor,
-    X_val: torch.Tensor,
+    x_val: torch.Tensor,
     y_val: torch.Tensor,
     learning_rate: float = 1e-3,
     learning_rate_decay: float = 0.95,
@@ -253,16 +235,16 @@ def nn_train(
     Train this neural network using stochastic gradient descent.
 
     Inputs:
-    - params: a dictionary of PyTorch Tensor that store the weights of a model.
-      It should have following keys with shape
+    - params: a dictionary of PyTorch Tensor that stores the weights of a model.
+      It should have the following keys with shape
           W1: First layer weights; has shape (D, H)
-          b1: First layer biases; has shape (H,)
+          b1: First layer biases; has shape (H, )
           W2: Second layer weights; has shape (H, C)
-          b2: Second layer biases; has shape (C,)
+          b2: Second layer biases; has shape (C, )
     - loss_func: a loss function that computes the loss and the gradients.
       It takes as input:
       - params: Same as input to nn_train
-      - X_batch: A minibatch of inputs of shape (B, D)
+      - x_batch: A minibatch of inputs of shape (B, D)
       - y_batch: Ground-truth labels for X_batch
       - reg: Same as input to nn_train
       And it returns a tuple of:
@@ -270,14 +252,13 @@ def nn_train(
         - grads: Dictionary mapping parameter names to gradients of the loss with
           respect to the corresponding parameter.
     - pred_func: prediction function that im
-    - X: A PyTorch tensor of shape (N, D) giving training data.
-    - y: A PyTorch tensor of shape (N,) giving training labels; y[i] = c means
-      that X[i] has label c, where 0 <= c < C.
+        - X: A PyTorch tensor of shape (N, D) giving training data.
+        - y: A PyTorch tensor of shape (N, ) giving training labels; y[i] = c means
+            that X[i] has label c, where 0 <= c < C.
     - X_val: A PyTorch tensor of shape (N_val, D) giving validation data.
     - y_val: A PyTorch tensor of shape (N_val,) giving validation labels.
     - learning_rate: Scalar giving learning rate for optimization.
-    - learning_rate_decay: Scalar giving factor used to decay the learning rate
-      after each epoch.
+    - learning_rate_decay: Scalar giving factor used to decay the learning rate after each epoch.
     - reg: Scalar giving regularization strength.
     - num_iters: Number of steps to take when optimizing.
     - batch_size: Number of training examples to use per step.
@@ -285,7 +266,7 @@ def nn_train(
 
     Returns: A dictionary giving statistics about the training process
     """
-    num_train = X.shape[0]
+    num_train = x.shape[0]
     iterations_per_epoch = max(num_train // batch_size, 1)
 
     # Use SGD to optimize the parameters in self.model
@@ -294,23 +275,16 @@ def nn_train(
     val_acc_history = []
 
     for it in range(num_iters):
-        X_batch, y_batch = sample_batch(X, y, num_train, batch_size)
+        x_batch, y_batch = sample_batch(x, y, batch_size)
 
         # Compute loss and gradients using the current minibatch
-        loss, grads = loss_func(params, X_batch, y=y_batch, reg=reg)
+        loss, grads = loss_func(params, x_batch, y=y_batch, reg=reg)
         loss_history.append(loss.item())
 
-        #########################################################################
-        # TODO: Use the gradients in the grads dictionary to update the         #
-        # parameters of the network (stored in the dictionary self.params)      #
-        # using stochastic gradient descent. You'll need to use the gradients   #
-        # stored in the grads dictionary defined above.                         #
-        #########################################################################
-        # Replace "pass" statement with your code
-        pass
-        #########################################################################
-        #                             END OF YOUR CODE                          #
-        #########################################################################
+        params['W1'] -= learning_rate * grads['W1']
+        params['b1'] -= learning_rate * grads['b1']
+        params['W2'] -= learning_rate * grads['W2']
+        params['b2'] -= learning_rate * grads['b2']
 
         if verbose and it % 100 == 0:
             print("iteration %d / %d: loss %f" % (it, num_iters, loss.item()))
@@ -318,9 +292,9 @@ def nn_train(
         # Every epoch, check train and val accuracy and decay learning rate.
         if it % iterations_per_epoch == 0:
             # Check accuracy
-            y_train_pred = pred_func(params, loss_func, X_batch)
+            y_train_pred = pred_func(params, loss_func, x_batch)
             train_acc = (y_train_pred == y_batch).float().mean().item()
-            y_val_pred = pred_func(params, loss_func, X_val)
+            y_val_pred = pred_func(params, loss_func, x_val)
             val_acc = (y_val_pred == y_val).float().mean().item()
             train_acc_history.append(train_acc)
             val_acc_history.append(val_acc)
@@ -336,7 +310,7 @@ def nn_train(
 
 
 def nn_predict(
-    params: Dict[str, torch.Tensor], loss_func: Callable, X: torch.Tensor
+    params: Dict[str, torch.Tensor], loss_func: Callable, x: torch.Tensor
 ):
     """
     Use the trained weights of this two-layer network to predict labels for
