@@ -115,13 +115,13 @@ def svm_loss_naive(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: float
     Inputs:
     - W: A PyTorch tensor of shape (D, C) containing weights.
     - X: A PyTorch tensor of shape (N, D) containing a minibatch of data.
-    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c means
+    - y: A PyTorch tensor of shape (N) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
 
     Returns a tuple of:
     - loss as torch scalar
-    - gradient of loss with respect to weights W; a tensor of same shape as W
+    - gradient of loss with respect to weights W; a tensor of the same shape as W
     """
 
     loss = 0.0
@@ -167,13 +167,13 @@ def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: 
     Inputs:
     - w: A PyTorch tensor of shape (D, C) containing weights.
     - x: A PyTorch tensor of shape (N, D) containing a minibatch of data.
-    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c means
+    - y: A PyTorch tensor of shape (N) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
 
     Returns a tuple of:
     - loss as torch scalar
-    - gradient of loss with respect to weights W; a tensor of same shape as W
+    - gradient of loss with respect to weights W; a tensor of the same shape as W
     """
 
     num_train = x.shape[0]
@@ -185,7 +185,7 @@ def svm_loss_vectorized(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: 
     # subtract from each sample prediction value, the correct sample prediction value - 1
     margins = torch.max(torch.zeros_like(predicted_labels), predicted_labels - true_labels.view(-1, 1) + 1)
 
-    # init each samples' correct prediction value
+    # init each sample correct prediction value
     margins[torch.arange(num_train), y] = 0
 
     # calculate the SVM loss as the mean of the positive margins plus L2 regularization.
@@ -206,7 +206,7 @@ def sample_batch(x: torch.Tensor, y: torch.Tensor, batch_size: int):
     Sample batch_size elements from the training data and their
     corresponding labels to use in this round of gradient descent.
 
-    return x_batch, y_batch
+    Return x_batch, y_batch
     """
 
     num_samples = x.shape[0]
@@ -246,7 +246,7 @@ def train_linear_classifier(loss_func: Callable,
     - reg: (float) regularization strength.
     - num_iters: (integer) number of steps to take when optimizing
     - batch_size: (integer) number of training examples to use at each step.
-    - verbose: (boolean) If true, print progress during optimization.
+    - Verbose: (boolean) If true, print progress during optimization.
 
     Returns: A tuple of:
     - W: The final value of the weight matrix and the end of optimization
@@ -291,7 +291,7 @@ def predict_linear_classifier(w: torch.Tensor, x: torch.Tensor):
     - x: A PyTorch tensor of shape (N, D) containing training data; there are N training samples each of dimension D.
 
     Returns:
-    - y_pred: PyTorch int64 tensor of shape (N, ) giving predicted labels for each
+    - y_pred: PyTorch int64 tensor of shape (N) giving predicted labels for each
       element of x. Each element of y_pred should be between 0 and C - 1.
     """
 
@@ -327,14 +327,14 @@ def test_one_param_set(cls: LinearClassifier,
     with train/val accuracy.
 
     Inputs:
-    - cls (LinearClassifier): a newly-created LinearClassifier instance.
+    - cls (LinearClassifier): a newly created LinearClassifier instance.
                               Train/Validation should perform over this instance
     - data_dict (dict): a dictionary that includes
                         ['X_train', 'y_train', 'X_val', 'y_val']
                         as the keys for training a classifier
     - lr (float): learning rate parameter for training SVM instance.
     - reg (float): a regularization weight for training SVM instance.
-    - num_iters (int, optional): a number of iterations to train
+    - Num_iters (int, optional): a number of iterations to train
 
     Returns:
     - cls (LinearClassifier): a trained LinearClassifier instances with
@@ -374,13 +374,13 @@ def softmax_loss_naive(w: torch.Tensor, x: torch.Tensor, y: torch.Tensor, reg: f
     Inputs:
     - W: A PyTorch tensor of shape (D, C) containing weights.
     - X: A PyTorch tensor of shape (N, D) containing a minibatch of data.
-    - y: A PyTorch tensor of shape (N, ) containing training labels; y[i] = c means
+    - y: A PyTorch tensor of shape (N) containing training labels; y[i] = c means
       that X[i] has label c, where 0 <= c < C.
     - reg: (float) regularization strength
 
     Returns a tuple of:
     - loss as single float
-    - gradient with respect to weights W; a tensor of same shape as W
+    - gradient with respect to weights W; a tensor of the same shape as W
     """
     num_samples = x.shape[0]
     num_classes = w.shape[1]
@@ -463,7 +463,7 @@ def softmax_get_search_params():
 
     Returns:
     - learning_rates: learning rate candidates, e.g. [1e-3, 1e-2, ...]
-    - regularization_strengths: regularization strengths candidates
+    - Regularization_strengths: regularization strengths candidates
                                 e.g. [1e0, 1e1, ...]
     """
     learning_rates = [0.00001, 0.00008, 0.000006, 0.000004, 0.000002]
