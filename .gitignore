@@ -172,3 +172,6 @@ A1-KNN_Classifier/pytorch101.py
 /A5-conv_NN/__init__.py
 /A4-Fully_connected_NN/a3_helper.py
 /A5-conv_NN/a3_helper.py
+/A4-Fully_connected_NN/cifar-10-batches-py/
+/A4-Fully_connected_NN/debag.py
+/A4-Fully_connected_NN/cifar-10-python.tar.gz
