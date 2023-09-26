@@ -166,3 +166,9 @@ A1-KNN_Classifier/pytorch101.py
 /A3-Neutal_Network/eecs598/
 
 /A3-Neural_Network_Training/eecs598/
+/A4-Fully_connected_NN/eecs598/
+/A4-Fully_connected_NN/__init__.py
+/A5-conv_NN/eecs598/
+/A5-conv_NN/__init__.py
+/A4-Fully_connected_NN/a3_helper.py
+/A5-conv_NN/a3_helper.py
