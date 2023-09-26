@@ -21,9 +21,9 @@ class TwoLayerNet(object):
         variable self.params, which is a dictionary with the following keys:
 
         W1: First layer weights; has shape (D, H)
-        b1: First layer biases; has shape (H,)
+        b1: First layer biases; has shape (H)
         W2: Second layer weights; has shape (H, C)
-        b2: Second layer biases; has shape (C,)
+        b2: Second layer biases; has shape (C)
 
         Inputs:
         - input_size: The dimension D of the input data.
@@ -37,29 +37,24 @@ class TwoLayerNet(object):
         random.seed(0)
         torch.manual_seed(0)
 
-        self.params = {}
-        self.params["W1"] = std * torch.randn(
-            input_size, hidden_size, dtype=dtype, device=device
-        )
-        self.params["b1"] = torch.zeros(hidden_size, dtype=dtype, device=device)
-        self.params["W2"] = std * torch.randn(
-            hidden_size, output_size, dtype=dtype, device=device
-        )
-        self.params["b2"] = torch.zeros(output_size, dtype=dtype, device=device)
+        self.params = {"W1": std * torch.randn(input_size, hidden_size, dtype=dtype, device=device),
+                       "b1": torch.zeros(hidden_size, dtype=dtype, device=device),
+                       "W2": std * torch.randn(hidden_size, output_size, dtype=dtype, device=device),
+                       "b2": torch.zeros(output_size, dtype=dtype, device=device)}
 
     def loss(
         self,
-        X: torch.Tensor,
+        x: torch.Tensor,
         y: Optional[torch.Tensor] = None,
         reg: float = 0.0,
     ):
-        return nn_forward_backward(self.params, X, y, reg)
+        return nn_forward_backward(self.params, x, y, reg)
 
     def train(
         self,
-        X: torch.Tensor,
+        x: torch.Tensor,
         y: torch.Tensor,
-        X_val: torch.Tensor,
+        x_val: torch.Tensor,
         y_val: torch.Tensor,
         learning_rate: float = 1e-3,
         learning_rate_decay: float = 0.95,
@@ -70,14 +65,14 @@ class TwoLayerNet(object):
     ):
         # fmt: off
         return nn_train(
-            self.params, nn_forward_backward, nn_predict, X, y,
-            X_val, y_val, learning_rate, learning_rate_decay,
+            self.params, nn_forward_backward, nn_predict, x, y,
+            x_val, y_val, learning_rate, learning_rate_decay,
             reg, num_iters, batch_size, verbose,
         )
         # fmt: on
 
-    def predict(self, X: torch.Tensor):
-        return nn_predict(self.params, nn_forward_backward, X)
+    def predict(self, x: torch.Tensor):
+        return nn_predict(self.params, nn_forward_backward, x)
 
     def save(self, path: str):
         torch.save(self.params, path)
@@ -281,10 +276,11 @@ def nn_train(
         loss, grads = loss_func(params, x_batch, y=y_batch, reg=reg)
         loss_history.append(loss.item())
 
+        # update params
         params['W1'] -= learning_rate * grads['W1']
-        params['b1'] -= learning_rate * grads['b1']
+        params['b1'] -= learning_rate * grads['b1'].reshape(-1)
         params['W2'] -= learning_rate * grads['W2']
-        params['b2'] -= learning_rate * grads['b2']
+        params['b2'] -= learning_rate * grads['b2'].reshape(-1)
 
         if verbose and it % 100 == 0:
             print("iteration %d / %d: loss %f" % (it, num_iters, loss.item()))
@@ -309,21 +305,19 @@ def nn_train(
     }
 
 
-def nn_predict(
-    params: Dict[str, torch.Tensor], loss_func: Callable, x: torch.Tensor
-):
+def nn_predict(params: Dict[str, torch.Tensor], loss_func: Callable, x: torch.Tensor):
     """
     Use the trained weights of this two-layer network to predict labels for
-    data points. For each data point we predict scores for each of the C
+    data points For each data point, we predict scores for each of the C
     classes, and assign each data point to the class with the highest score.
 
     Inputs:
-    - params: a dictionary of PyTorch Tensor that store the weights of a model.
-      It should have following keys with shape
+    - params: a dictionary of PyTorch Tensor that stores the weights of a model.
+      It should have the following keys with shape
           W1: First layer weights; has shape (D, H)
-          b1: First layer biases; has shape (H,)
+          b1: First layer biases; has shape (H, )
           W2: Second layer weights; has shape (H, C)
-          b2: Second layer biases; has shape (C,)
+          b2: Second layer biases; has shape (C, )
     - loss_func: a loss function that computes the loss and the gradients
     - X: A PyTorch tensor of shape (N, D) giving N D-dimensional data points to
       classify.
@@ -333,16 +327,9 @@ def nn_predict(
       the elements of X. For all i, y_pred[i] = c means that X[i] is predicted
       to have class c, where 0 <= c < C.
     """
-    y_pred = None
 
-    ###########################################################################
-    # TODO: Implement this function; it should be VERY simple!                #
-    ###########################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                              END OF YOUR CODE                           #
-    ###########################################################################
+    scores = loss_func(params=params, x=x)
+    y_pred = scores.argmax(dim=1)
 
     return y_pred
 
