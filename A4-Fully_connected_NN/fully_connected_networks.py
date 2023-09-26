@@ -3,6 +3,7 @@ Implements fully connected networks in PyTorch.
 WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
 """
 import torch
+from a3_helper import softmax_loss
 
 
 class Linear(object):
@@ -93,7 +94,7 @@ class ReLU(object):
 
         dx = d_out.clone()
 
-        dx[x >= 0] = 0
+        dx[x <= 0] = 0
 
         return dx
 
@@ -119,22 +120,22 @@ class LinearRelu(object):
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         Backward pass for the linear-relu convenience layer
         """
         fc_cache, relu_cache = cache
-        da = ReLU.backward(dout, relu_cache)
+        da = ReLU.backward(d_out, relu_cache)
         dx, dw, db = Linear.backward(da, fc_cache)
         return dx, dw, db
 
 
 class TwoLayerNet(object):
     """
-    A two-layer fully-connected neural network with ReLU nonlinearity and
+    A two-layer fully connected neural network with ReLU nonlinear and
     softmax loss that uses a modular layer design. We assume an input dimension
     of D, a hidden dimension of H, and perform classification over C classes.
-    The architecure should be linear - relu - linear - softmax.
+    The architecture should be linear - relu - linear - softmax.
     Note that this class does not implement gradient descent; instead, it
     will interact with a separate Solver object that is responsible for running
     optimization.
@@ -143,9 +144,9 @@ class TwoLayerNet(object):
     self.params that maps parameter names to PyTorch tensors.
     """
 
-    def __init__(self, input_dim=3*32*32, hidden_dim=100, num_classes=10,
+    def __init__(self, input_dim=3 * 32 * 32, hidden_dim=100, num_classes=10,
                  weight_scale=1e-3, reg=0.0,
-                 dtype=torch.float32, device='cpu'):
+                 dtype=torch.float32, device='cuda'):
         """
         Initialize a new network.
         Inputs:
@@ -156,32 +157,23 @@ class TwoLayerNet(object):
           initialization of the weights.
         - reg: Scalar giving L2 regularization strength.
         - dtype: A torch data type object; all computations will be
-          performed using this datatype. float is faster but less accurate,
+          performed using this datatype.
+          Float is faster but less accurate,
           so you should use double for numeric gradient checking.
-        - device: device to use for computation. 'cpu' or 'cuda'
+        - Device: device to use for computation: 'Cpu' or 'cuda'
         """
         self.params = {}
         self.reg = reg
 
-        ###################################################################
-        # TODO: Initialize the weights and biases of the two-layer net.   #
-        # Weights should be initialized from a Gaussian centered at       #
-        # 0.0 with standard deviation equal to weight_scale, and biases   #
-        # should be initialized to zero. All weights and biases should    #
-        # be stored in the dictionary self.params, with first layer       #
-        # weights and biases using the keys 'W1' and 'b1' and second layer#
-        # weights and biases using the keys 'W2' and 'b2'.                #
-        ###################################################################
-        # Replace "pass" statement with your code
-        pass
-        ###############################################################
-        #                            END OF YOUR CODE                 #
-        ###############################################################
+        self.params[f'W1'] = torch.randn(input_dim, hidden_dim) * weight_scale
+        self.params[f'b1'] = torch.zeros(hidden_dim)
+        self.params[f'W2'] = torch.randn(num_classes, hidden_dim) * weight_scale
+        self.params[f'b2'] = torch.zeros(num_classes)
 
     def save(self, path):
         checkpoint = {
-          'reg': self.reg,
-          'params': self.params,
+            'reg': self.reg,
+            'params': self.params,
         }
 
         torch.save(checkpoint, path)
@@ -195,14 +187,14 @@ class TwoLayerNet(object):
             self.params[p] = self.params[p].type(dtype).to(device)
         print("load checkpoint file: {}".format(path))
 
-    def loss(self, X, y=None):
+    def loss(self, x, y=None):
         """
         Compute loss and gradient for a minibatch of data.
 
         Inputs:
         - X: Tensor of input data of shape (N, d_1, ..., d_k)
-        - y: int64 Tensor of labels, of shape (N,). y[i] gives the
-          label for X[i].
+        - y: int64 Tensor of labels, of shape (N).
+        Y[i] gives the label for X[i].
 
         Returns:
         If y is None, then run a test-time forward pass of the model
@@ -210,6 +202,7 @@ class TwoLayerNet(object):
         - scores: Tensor of shape (N, C) giving classification scores,
           where scores[i, c] is the classification score for X[i]
           and class c.
+
         If y is not None, then run a training-time forward and backward
         pass and return a tuple of:
         - loss: Scalar value giving the loss
@@ -217,39 +210,27 @@ class TwoLayerNet(object):
           parameter names to gradients of the loss with respect to
           those parameters.
         """
-        scores = None
-        #############################################################
-        # TODO: Implement the forward pass for the two-layer net,   #
-        # computing the class scores for X and storing them in the  #
-        # scores variable.                                          #
-        #############################################################
-        # Replace "pass" statement with your code
-        pass
-        ##############################################################
-        #                     END OF YOUR CODE                       #
-        ##############################################################
 
-        # If y is None then we are in test mode so just return scores
+        w1 = self.params['W1']
+        b1 = self.params['b1']
+        w2 = self.params['W2']
+        b2 = self.params['b2']
+
+        hidden, cache1 = Linear.forward(x=x, w=w1, b=b1)
+        scores, cache2 = Linear.forward(x=hidden, w=w2, b=b2)
+
         if y is None:
             return scores
 
         loss, grads = 0, {}
-        ###################################################################
-        # TODO: Implement the backward pass for the two-layer net.        #
-        # Store the loss in the loss variable and gradients in the grads  #
-        # dictionary. Compute data loss using softmax, and make sure that #
-        # grads[k] holds the gradients for self.params[k]. Don't forget   #
-        # to add L2 regularization!                                       #
-        #                                                                 #
-        # NOTE: To ensure that your implementation matches ours and       #
-        # you pass the automated tests, make sure that your L2            #
-        # regularization does not include a factor of 0.5.                #
-        ###################################################################
-        # Replace "pass" statement with your code
-        pass
-        ###################################################################
-        #                     END OF YOUR CODE                            #
-        ###################################################################
+
+        loss, d_loss = softmax_loss(x=scores, y=y)
+
+        # L2 regularization
+        loss += self.reg * (torch.sum(w1 * w1) + torch.sum(w2 * w2))
+
+        dx,  grads['W2'], grads['b2'] = Linear.backward(d_out=d_loss, cache=cache2)
+        dx, grads['W1'], grads['b1'] = Linear.backward(d_out=dx, cache=cache1)
 
         return loss, grads
 
@@ -268,7 +249,7 @@ class FullyConnectedNet(object):
     self.params dictionary and will be learned using the Solver class.
     """
 
-    def __init__(self, hidden_dims, input_dim=3*32*32, num_classes=10,
+    def __init__(self, hidden_dims, input_dim=3 * 32 * 32, num_classes=10,
                  dropout=0.0, reg=0.0, weight_scale=1e-2, seed=None,
                  dtype=torch.float, device='cpu'):
         """
@@ -325,12 +306,12 @@ class FullyConnectedNet(object):
 
     def save(self, path):
         checkpoint = {
-          'reg': self.reg,
-          'dtype': self.dtype,
-          'params': self.params,
-          'num_layers': self.num_layers,
-          'use_dropout': self.use_dropout,
-          'dropout_param': self.dropout_param,
+            'reg': self.reg,
+            'dtype': self.dtype,
+            'params': self.params,
+            'num_layers': self.num_layers,
+            'use_dropout': self.use_dropout,
+            'dropout_param': self.dropout_param,
         }
 
         torch.save(checkpoint, path)
@@ -422,7 +403,7 @@ def get_three_layer_network_params():
     # TODO: Change weight_scale and learning_rate so your         #
     # model achieves 100% training accuracy within 20 epochs.     #
     ###############################################################
-    weight_scale = 1e-2   # Experiment with this!
+    weight_scale = 1e-2  # Experiment with this!
     learning_rate = 1e-4  # Experiment with this!
     # Replace "pass" statement with your code
     pass
@@ -438,7 +419,7 @@ def get_five_layer_network_params():
     # model achieves 100% training accuracy within 20 epochs.      #
     ################################################################
     learning_rate = 2e-3  # Experiment with this!
-    weight_scale = 1e-5   # Experiment with this!
+    weight_scale = 1e-5  # Experiment with this!
     # Replace "pass" statement with your code
     pass
     ################################################################
