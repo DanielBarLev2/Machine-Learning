@@ -93,7 +93,6 @@ class ReLU(object):
         x = cache
 
         dx = d_out.clone()
-
         dx[x <= 0] = 0
 
         return dx
@@ -104,8 +103,7 @@ class LinearRelu(object):
     @staticmethod
     def forward(x, w, b):
         """
-        Convenience layer that performs a linear transform
-        followed by a ReLU.
+        Convenience layer that performs a linear transform followed by a ReLU.
 
         Inputs:
         - x: Input to the linear layer
@@ -114,6 +112,7 @@ class LinearRelu(object):
         - out: Output from the ReLU
         - cache: Object to give to the backward pass
         """
+
         a, fc_cache = Linear.forward(x, w, b)
         out, relu_cache = ReLU.forward(a)
         cache = (fc_cache, relu_cache)
@@ -165,9 +164,9 @@ class TwoLayerNet(object):
         self.params = {}
         self.reg = reg
 
-        self.params[f'W1'] = torch.randn(input_dim, hidden_dim) * weight_scale
+        self.params[f'W1'] = torch.randn(input_dim, hidden_dim, dtype=dtype, device=device) * weight_scale
         self.params[f'b1'] = torch.zeros(hidden_dim)
-        self.params[f'W2'] = torch.randn(num_classes, hidden_dim) * weight_scale
+        self.params[f'W2'] = torch.randn(num_classes, hidden_dim, dtype=dtype, device=device) * weight_scale
         self.params[f'b2'] = torch.zeros(num_classes)
 
     def save(self, path):
@@ -234,16 +233,18 @@ class TwoLayerNet(object):
 
         return loss, grads
 
+    # @todo solver
+
 
 class FullyConnectedNet(object):
     """
-    A fully-connected neural network with an arbitrary number of hidden layers,
-    ReLU nonlinearities, and a softmax loss function.
+    A fully connected neural network with an arbitrary number of hidden layers,
+    ReLU non-linearity, and a softmax loss function.
     For a network with L layers, the architecture will be:
 
-    {linear - relu - [dropout]} x (L - 1) - linear - softmax
+    {Linear - relu - [dropout]} x (L - 1) - linear - softmax
 
-    where dropout is optional, and the {...} block is repeated L - 1 times.
+    Where dropout is optional, and the {...} Block is repeated L - 1 times.
 
     Similar to the TwoLayerNet above, learnable parameters are stored in the
     self.params dictionary and will be learned using the Solver class.
