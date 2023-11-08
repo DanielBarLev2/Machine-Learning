@@ -4,6 +4,7 @@ WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
 """
 import torch
 from a3_helper import softmax_loss
+from eecs598 import Solver
 
 
 class Linear(object):
@@ -165,9 +166,9 @@ class TwoLayerNet(object):
         self.reg = reg
 
         self.params[f'W1'] = torch.randn(input_dim, hidden_dim, dtype=dtype, device=device) * weight_scale
-        self.params[f'b1'] = torch.zeros(hidden_dim)
-        self.params[f'W2'] = torch.randn(num_classes, hidden_dim, dtype=dtype, device=device) * weight_scale
-        self.params[f'b2'] = torch.zeros(num_classes)
+        self.params[f'b1'] = torch.zeros(hidden_dim, dtype=dtype, device=device)
+        self.params[f'W2'] = torch.randn(hidden_dim, num_classes, dtype=dtype, device=device) * weight_scale
+        self.params[f'b2'] = torch.zeros(num_classes, dtype=dtype, device=device)
 
     def save(self, path):
         checkpoint = {
@@ -232,8 +233,6 @@ class TwoLayerNet(object):
         dx, grads['W1'], grads['b1'] = Linear.backward(d_out=dx, cache=cache1)
 
         return loss, grads
-
-    # @todo solver
 
 
 class FullyConnectedNet(object):
@@ -385,17 +384,19 @@ class FullyConnectedNet(object):
 
 
 def create_solver_instance(data_dict, dtype, device):
+    """
+    Use a Solver instance to train a TwoLayerNet
+    """
     model = TwoLayerNet(hidden_dim=200, dtype=dtype, device=device)
-    #############################################################
-    # TODO: Use a Solver instance to train a TwoLayerNet that   #
-    # achieves at least 50% accuracy on the validation set.     #
-    #############################################################
-    solver = None
-    # Replace "pass" statement with your code
-    pass
-    ##############################################################
-    #                    END OF YOUR CODE                        #
-    ##############################################################
+
+    solver = Solver(model=model,
+                    data=data_dict,
+                    optim_config={'learning_rate': 0.01},
+                    lr_decay=0.94,
+                    num_epochs=15,
+                    batch_size=32,
+                    print_every=1000,
+                    device=device)
     return solver
 
 
