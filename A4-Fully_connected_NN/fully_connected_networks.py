@@ -285,11 +285,12 @@ class FullyConnectedNet(object):
 
         self.params = {}
         for layer in range(len(hidden_dims) - 1):
-            wight = (torch.randn(hidden_dims[layer], hidden_dims[layer + 1], dtype=dtype, device=device) * weight_scale)
+            wight = (torch.randn(hidden_dims[layer], hidden_dims[layer + 1], dtype=dtype, device=device) *
+                     weight_scale)
             basis = torch.zeros(hidden_dims[layer + 1], dtype=dtype, device=device)
 
-            self.params[f'W{layer}'] = wight
-            self.params[f'b{layer}'] = basis
+            self.params[f'W{layer + 1}'] = wight
+            self.params[f'b{layer + 1}'] = basis
 
         # When using dropout we need to pass a dropout_param dictionary
         # to each dropout layer so that the layer knows the dropout
@@ -345,7 +346,7 @@ class FullyConnectedNet(object):
         out = x.clone()
         caches = {}
 
-        for layer in range(self.num_layers):
+        for layer in range(1, self.num_layers + 1):
             out, cache = LinearRelu.forward(x=out, w=self.params[f'W{layer}'], b=self.params[f'b{layer}'])
             caches[f'cache{layer}'] = cache
 
@@ -360,7 +361,7 @@ class FullyConnectedNet(object):
         dx = d_loss
         grads = {}
 
-        for layer in range(self.num_layers - 1, 0, -1):
+        for layer in range(self.num_layers, 0, -1):
             reg_wights_sum += torch.sum(self.params[f'W{layer}'] * self.params[f'W{layer}'])
 
             dx, grads[f'W{layer}'], grads[f'b{layer}'] = LinearRelu.backward(d_out=dx,
@@ -391,17 +392,8 @@ def create_solver_instance(data_dict, dtype, device):
 
 
 def get_three_layer_network_params():
-    ###############################################################
-    # TODO: Change weight_scale and learning_rate so your         #
-    # model achieves 100% training accuracy within 20 epochs.     #
-    ###############################################################
     weight_scale = 1e-2  # Experiment with this!
     learning_rate = 1e-4  # Experiment with this!
-    # Replace "pass" statement with your code
-    pass
-    ################################################################
-    #                             END OF YOUR CODE                 #
-    ################################################################
     return weight_scale, learning_rate
 
 
