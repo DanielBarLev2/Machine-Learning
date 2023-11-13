@@ -439,9 +439,9 @@ def rmsprop(w, dw, config=None):
     """
     Uses the RMSProp update rule, which uses a moving average of squared
     gradient values to set adaptive per-parameter learning rates.
-    config format:
+    Config format:
     - learning_rate: Scalar learning rate.
-    - decay_rate: Scalar between 0 and 1 giving the decay rate for the squared
+    - decay_rate: Scalar between zero and one, giving the decay rate for the squared
       gradient cache.
     - epsilon: Small scalar used for smoothing to avoid dividing by zero.
     - cache: Moving average of second moments of gradients.
@@ -453,17 +453,8 @@ def rmsprop(w, dw, config=None):
     config.setdefault('epsilon', 1e-8)
     config.setdefault('cache', torch.zeros_like(w))
 
-    next_w = None
-    ###########################################################################
-    # TODO: Implement the RMSprop update formula, storing the next value of w #
-    # in the next_w variable. Don't forget to update cache value stored in    #
-    # config['cache'].                                                        #
-    ###########################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    config['cache'] = config['decay_rate'] * config['cache'] + (1 - config['decay_rate']) * dw * dw
+    next_w = w - config['learning_rate'] * dw / (torch.sqrt(config['cache']) + config['epsilon'])
 
     return next_w, config
 
@@ -491,20 +482,23 @@ def adam(w, dw, config=None):
     config.setdefault('v', torch.zeros_like(w))
     config.setdefault('t', 0)
 
-    next_w = None
-    ##########################################################################
-    # TODO: Implement the Adam update formula, storing the next value of w in#
-    # the next_w variable. Don't forget to update the m, v, and t variables  #
-    # stored in config.                                                      #
-    #                                                                        #
-    # NOTE: In order to match the reference output, please modify t _before_ #
-    # using it in any calculations.                                          #
-    ##########################################################################
-    # Replace "pass" statement with your code
-    pass
-    #########################################################################
-    #                              END OF YOUR CODE                         #
-    #########################################################################
+    # Increment the iteration number
+    config['t'] += 1
+
+    # Update biased first moment estimate
+    config['m'] = config['beta1'] * config['m'] + (1 - config['beta1']) * dw
+
+    # Update biased second raw moment estimate
+    config['v'] = config['beta2'] * config['v'] + (1 - config['beta2']) * (dw ** 2)
+
+    # Bias-corrected first moment estimate
+    m_hat = config['m'] / (1 - config['beta1'] ** config['t'])
+
+    # Bias-corrected second raw moment estimate
+    v_hat = config['v'] / (1 - config['beta2'] ** config['t'])
+
+    # Adam update formula
+    next_w = w - config['learning_rate'] * m_hat / (torch.sqrt(v_hat) + config['epsilon'])
 
     return next_w, config
 
