@@ -74,7 +74,7 @@ class ReLU(object):
         - out: Output, a tensor of the same shape as x
         - cache: x
         """
-        out = x
+        out = x.clone()
         out[out < 0] = 0
 
         cache = x
@@ -111,22 +111,22 @@ class LinearRelu(object):
         - w, b: Weights for the linear layer
         Returns a tuple of:
         - out: Output from the ReLU
-        - cache: Object to give to the backward pass
+        - cache: Dict to give to the backward pass
         """
 
-        a, fc_cache = Linear.forward(x, w, b)
-        out, relu_cache = ReLU.forward(a)
-        cache = (fc_cache, relu_cache)
-        return out, cache
+        z, fully_connected_cache = Linear.forward(x, w, b)
+        activation, relu_cache = ReLU.forward(z)
+        cache = {"fully_connected_cache": fully_connected_cache, 'relu_cache': relu_cache}
+        return activation, cache
 
     @staticmethod
     def backward(d_out, cache):
         """
         Backward pass for the linear-relu convenience layer
         """
-        fc_cache, relu_cache = cache
+        fully_connected_cache, relu_cache = cache['fully_connected_cache'], cache['relu_cache']
         da = ReLU.backward(d_out, relu_cache)
-        dx, dw, db = Linear.backward(da, fc_cache)
+        dx, dw, db = Linear.backward(da, fully_connected_cache)
         return dx, dw, db
 
 
@@ -229,7 +229,7 @@ class TwoLayerNet(object):
         # L2 regularization
         loss += self.reg * (torch.sum(w1 * w1) + torch.sum(w2 * w2))
 
-        dx,  grads['W2'], grads['b2'] = Linear.backward(d_out=d_loss, cache=cache2)
+        dx, grads['W2'], grads['b2'] = Linear.backward(d_out=d_loss, cache=cache2)
         dx, grads['W1'], grads['b1'] = Linear.backward(d_out=dx, cache=cache1)
 
         return loss, grads
@@ -267,32 +267,29 @@ class FullyConnectedNet(object):
         - weight_scale: Scalar giving the standard deviation for random
           initialization of the weights.
         - seed: If not None, then pass this random seed to the dropout
-          layers. This will make the dropout layers deteriminstic so we
+          layers. This will make the dropout layers deterministic, so we
           can gradient check the model.
         - dtype: A torch data type object; all computations will be
-          performed using this datatype. float is faster but less accurate,
+          performed using this datatype. Float is faster but less accurate,
           so you should use double for numeric gradient checking.
-        - device: device to use for computation. 'cpu' or 'cuda'
+        - device: device to use for computation. 'Cpu' or 'cuda'
         """
         self.use_dropout = dropout != 0
         self.reg = reg
         self.num_layers = 1 + len(hidden_dims)
         self.dtype = dtype
-        self.params = {}
+        self.num_classes = num_classes
 
-        #######################################################################
-        # TODO: Initialize the parameters of the network, storing all         #
-        # values in the self.params dictionary. Store weights and biases      #
-        # for the first layer in W1 and b1; for the second layer use W2 and   #
-        # b2, etc. Weights should be initialized from a normal distribution   #
-        # centered at 0 with standard deviation equal to weight_scale. Biases #
-        # should be initialized to zero.                                      #
-        #######################################################################
-        # Replace "pass" statement with your code
-        pass
-        #######################################################################
-        #                         END OF YOUR CODE                            #
-        #######################################################################
+        hidden_dims.insert(0, input_dim)
+        hidden_dims.append(num_classes)
+
+        self.params = {}
+        for layer in range(len(hidden_dims) - 1):
+            wight = (torch.randn(hidden_dims[layer], hidden_dims[layer + 1], dtype=dtype, device=device) * weight_scale)
+            basis = torch.zeros(hidden_dims[layer + 1], dtype=dtype, device=device)
+
+            self.params[f'W{layer}'] = wight
+            self.params[f'b{layer}'] = basis
 
         # When using dropout we need to pass a dropout_param dictionary
         # to each dropout layer so that the layer knows the dropout
@@ -331,54 +328,47 @@ class FullyConnectedNet(object):
 
         print("load checkpoint file: {}".format(path))
 
-    def loss(self, X, y=None):
+    def loss(self, x, y=None):
         """
-        Compute loss and gradient for the fully-connected net.
+        Compute loss and gradient for the fully connected net.
         Input / output: Same as TwoLayerNet above.
         """
-        X = X.to(self.dtype)
+        x = x.to(self.dtype)
         mode = 'test' if y is None else 'train'
 
-        # Set train/test mode for batchnorm params and dropout param
+        # Set train/test mode for batch-norm params and dropout param
         # since they behave differently during training and testing.
         if self.use_dropout:
             self.dropout_param['mode'] = mode
-        scores = None
-        ##################################################################
-        # TODO: Implement the forward pass for the fully-connected net,  #
-        # computing the class scores for X and storing them in the       #
-        # scores variable.                                               #
-        #                                                                #
-        # When using dropout, you'll need to pass self.dropout_param     #
-        # to each dropout forward pass.                                  #
-        ##################################################################
-        # Replace "pass" statement with your code
-        pass
-        #################################################################
-        #                      END OF YOUR CODE                         #
-        #################################################################
 
-        # If test mode return early
+        # forward pass
+        out = x.clone()
+        caches = {}
+
+        for layer in range(self.num_layers):
+            out, cache = LinearRelu.forward(x=out, w=self.params[f'W{layer}'], b=self.params[f'b{layer}'])
+            caches[f'cache{layer}'] = cache
+
         if mode == 'test':
-            return scores
+            return out
 
-        loss, grads = 0.0, {}
-        #####################################################################
-        # TODO: Implement the backward pass for the fully-connected net.    #
-        # Store the loss in the loss variable and gradients in the grads    #
-        # dictionary. Compute data loss using softmax, and make sure that   #
-        # grads[k] holds the gradients for self.params[k]. Don't forget to  #
-        # add L2 regularization!                                            #
-        # NOTE: To ensure that your implementation matches ours and you     #
-        # pass the automated tests, make sure that your L2 regularization   #
-        # includes a factor of 0.5 to simplify the expression for           #
-        # the gradient.                                                     #
-        #####################################################################
-        # Replace "pass" statement with your code
-        pass
-        ###########################################################
-        #                   END OF YOUR CODE                      #
-        ###########################################################
+        # compute loss
+        loss, d_loss = softmax_loss(x=out, y=y)
+
+        # backward pass
+        reg_wights_sum = 0
+        dx = d_loss
+        grads = {}
+
+        for layer in range(self.num_layers - 1, 0, -1):
+            reg_wights_sum += torch.sum(self.params[f'W{layer}'] * self.params[f'W{layer}'])
+
+            dx, grads[f'W{layer}'], grads[f'b{layer}'] = LinearRelu.backward(d_out=dx,
+                                                                             cache=caches[f'cache{layer}'])
+            # regularization
+            grads[f'W{layer}'] += self.reg * self.params[f'W{layer}']
+
+        loss += 0.5 * self.reg * reg_wights_sum
 
         return loss, grads
 
