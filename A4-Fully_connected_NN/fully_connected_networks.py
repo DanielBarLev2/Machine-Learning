@@ -392,24 +392,8 @@ def create_solver_instance(data_dict, dtype, device):
 
 
 def get_three_layer_network_params():
-    # best: 0.6 w, 0.02 lr : 0.83
-    weight_scale = [0.04]
-    learning_rate = [0.91]
-    return weight_scale, learning_rate
-
-
-def get_five_layer_network_params():
-    ################################################################
-    # TODO: Change weight_scale and learning_rate so your          #
-    # model achieves 100% training accuracy within 20 epochs.      #
-    ################################################################
-    learning_rate = 2e-3  # Experiment with this!
-    weight_scale = 1e-5  # Experiment with this!
-    # Replace "pass" statement with your code
-    pass
-    ################################################################
-    #                       END OF YOUR CODE                       #
-    ################################################################
+    weight_scale = 0.04
+    learning_rate = 0.91
     return weight_scale, learning_rate
 
 
@@ -430,9 +414,9 @@ def sgd(w, dw, config=None):
 def sgd_momentum(w, dw, config=None):
     """
     Performs stochastic gradient descent with momentum.
-    config format:
+    Config format:
     - learning_rate: Scalar learning rate.
-    - momentum: Scalar between 0 and 1 giving the momentum value.
+    - momentum: Scalar between zero and one giving the momentum value.
       Setting momentum = 0 reduces to sgd.
     - velocity: A numpy array of the same shape as w and dw used to
       store a moving average of the gradients.
@@ -443,17 +427,9 @@ def sgd_momentum(w, dw, config=None):
     config.setdefault('momentum', 0.9)
     v = config.get('velocity', torch.zeros_like(w))
 
-    next_w = None
-    ##################################################################
-    # TODO: Implement the momentum update formula. Store the         #
-    # updated value in the next_w variable. You should also use and  #
-    # update the velocity v.                                         #
-    ##################################################################
-    # Replace "pass" statement with your code
-    pass
-    ###################################################################
-    #                           END OF YOUR CODE                      #
-    ###################################################################
+    v = config['momentum'] * v - config['learning_rate'] * dw
+    next_w = w + v
+
     config['velocity'] = v
 
     return next_w, config
