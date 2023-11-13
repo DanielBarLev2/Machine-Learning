@@ -392,8 +392,9 @@ def create_solver_instance(data_dict, dtype, device):
 
 
 def get_three_layer_network_params():
-    weight_scale = 1e-2  # Experiment with this!
-    learning_rate = 1e-4  # Experiment with this!
+    # best: 0.6 w, 0.02 lr : 0.83
+    weight_scale = [0.04]
+    learning_rate = [0.91]
     return weight_scale, learning_rate
 
 
