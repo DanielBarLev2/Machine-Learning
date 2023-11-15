@@ -514,17 +514,16 @@ class Dropout(object):
         - dropout_param: A dictionary with the following keys:
           - p: Dropout parameter. We *drop* each neuron output with
             probability p.
-          - mode: 'test' or 'train'. If the mode is train, then
+          - mode: 'test' or 'train'. If the mode is trained, then
             perform dropout;
-          if the mode is test, then just return the input.
+          if the mode is tested, then return the input.
           - seed: Seed for the random number generator. Passing seed
-            makes this
-            function deterministic, which is needed for gradient checking
+            makes this function deterministic, which is needed for gradient checking
             but not in real networks.
         Outputs:
         - out: Tensor of the same shape as x.
         - cache: tuple (dropout_param, mask). In training mode, mask
-          is the dropout mask that was used to multiply the input; in
+          is the dropout mask used to multiply the input; in
           test mode, mask is None.
         NOTE: Please implement **inverted** dropout, not the vanilla
               version of dropout.
@@ -534,7 +533,7 @@ class Dropout(object):
                 where it is referred to as the probability of keeping a
                 neuron output.
         """
-        p, mode = dropout_param['p'], dropout_param['mode']
+        dropout_prob, mode = dropout_param['p'], dropout_param['mode']
         if 'seed' in dropout_param:
             torch.manual_seed(dropout_param['seed'])
 
@@ -542,53 +541,29 @@ class Dropout(object):
         out = None
 
         if mode == 'train':
-            ##############################################################
-            # TODO: Implement training phase forward pass for            #
-            # inverted dropout.                                          #
-            # Store the dropout mask in the mask variable.               #
-            ##############################################################
-            # Replace "pass" statement with your code
-            pass
-            ##############################################################
-            #                   END OF YOUR CODE                         #
-            ##############################################################
+            mask = (torch.rand_like(x) > dropout_prob).double() / (1 - dropout_prob)
+            out = x * mask
         elif mode == 'test':
-            ##############################################################
-            # TODO: Implement the test phase forward pass for            #
-            # inverted dropout.                                          #
-            ##############################################################
-            # Replace "pass" statement with your code
-            pass
-            ##############################################################
-            #                      END OF YOUR CODE                      #
-            ##############################################################
+            out = x
 
         cache = (dropout_param, mask)
 
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         Perform the backward pass for (inverted) dropout.
         Inputs:
-        - dout: Upstream derivatives, of any shape
+        - d_out: Upstream derivatives, of any shape
         - cache: (dropout_param, mask) from Dropout.forward.
         """
         dropout_param, mask = cache
         mode = dropout_param['mode']
 
-        dx = None
+        dx = d_out.clone()
         if mode == 'train':
-            ###########################################################
-            # TODO: Implement training phase backward pass for        #
-            # inverted dropout                                        #
-            ###########################################################
-            # Replace "pass" statement with your code
-            pass
-            ###########################################################
-            #                     END OF YOUR CODE                    #
-            ###########################################################
+            dx = d_out * mask
         elif mode == 'test':
-            dx = dout
+            dx = d_out
         return dx
