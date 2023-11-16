@@ -134,37 +134,41 @@ class MaxPool(object):
           W' = 1 + (W - pool_width) / stride
         - cache: (x, pool_param)
         """
-        out = None
-        ####################################################################
-        # TODO: Implement the max-pooling forward pass                     #
-        ####################################################################
-        # Replace "pass" statement with your code
-        pass
-        ####################################################################
-        #                         END OF YOUR CODE                         #
-        ####################################################################
+        number, chanel, x_height, x_width = x.shape
+        pool_height = pool_param['pool_height']
+        pool_width = pool_param['pool_width']
+        stride = pool_param['stride']
+
+        out_height = math.floor(1 + (x_height - pool_height) / stride)
+        out_width = math.floor(1 + (x_width - pool_width) / stride)
+
+        out = torch.zeros(size=[number, chanel, out_height, out_width], device=x.device, dtype=x.dtype)
+
+        for n in range(number):
+
+            for c in range(chanel):
+
+                for i in range(out_height):
+
+                    for j in range(out_width):
+                        x_slice = x[n, :, i * stride:i * stride + pool_height, j * stride:j * stride + pool_width]
+                        out[n, c, i, j] = torch.max(x_slice)
+
         cache = (x, pool_param)
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         A naive implementation of the backward pass for a max-pooling layer.
         Inputs:
-        - dout: Upstream derivatives
+        - d_out: Upstream derivatives
         - cache: A tuple of (x, pool_param) as in the forward pass.
         Returns:
         - dx: Gradient with respect to x
         """
         dx = None
-        #####################################################################
-        # TODO: Implement the max-pooling backward pass                     #
-        #####################################################################
-        # Replace "pass" statement with your code
-        pass
-        ####################################################################
-        #                          END OF YOUR CODE                        #
-        ####################################################################
+
         return dx
 
 
