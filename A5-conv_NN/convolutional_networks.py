@@ -2,9 +2,10 @@
 Implements convolutional networks in PyTorch.
 WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
 """
+import math
+
 import torch
-from a3_helper import softmax_loss
-from fully_connected_networks import LinearRelu, Linear, Solver, adam, ReLU
+from fully_connected_networks import Linear, ReLU
 
 
 def hello_convolutional_networks():
@@ -28,15 +29,14 @@ class Conv(object):
         Input:
         - x: Input data of shape (N, C, H, W)
         - w: Filter weights of shape (F, C, HH, WW)
-        - b: Biases, of shape (F,)
+        - b: Biases, of shape (F)
         - conv_param: A dictionary with the following keys:
-          - 'stride': The number of pixels between adjacent receptive fields
-            in the horizontal and vertical directions.
-          - 'pad': The number of pixels that is used to zero-pad the input.
+          - 'stride': The number of pixels between adjacent receptive fields in the horizontal and vertical directions.
+          - 'Pad': The number of pixels that is used to zero-pad the input.
 
-        During padding, 'pad' zeros should be placed symmetrically (i.e equally
-        on both sides) along the height and width axes of the input. Be careful
-        not to modfiy the original input x directly.
+        During padding, 'pad' zeros should be placed symmetrically (i.e equally on both sides) along the height and
+        width axes of the input.
+        Be careful not to modify the original input x directly.
 
         Returns a tuple of:
         - out: Output data of shape (N, F, H', W') where H' and W' are given by
@@ -44,17 +44,29 @@ class Conv(object):
           W' = 1 + (W + 2 * pad - WW) / stride
         - cache: (x, w, b, conv_param)
         """
-        out = None
-        ####################################################################
-        # TODO: Implement the convolutional forward pass.                  #
-        # Hint: you can use function torch.nn.functional.pad for padding.  #
-        # You are NOT allowed to use anything in torch.nn in other places. #
-        ####################################################################
-        # Replace "pass" statement with your code
-        pass
-        #####################################################################
-        #                          END OF YOUR CODE                         #
-        #####################################################################
+        number, channel, x_height, x_width = x.shape
+        filter_size, _, w_height, w_width = w.shape
+        stride = conv_param['stride']
+        pad = conv_param['pad']
+
+        # Pad the input
+        x_pad = torch.nn.functional.pad(input=x, pad=(pad, pad, pad, pad), value=0)
+
+        # output tensor dimensions and initialization
+        out_height = math.floor(1 + (x_height + 2 * pad - w_height) / 2)
+        out_width = math.floor(1 + (x_width + 2 * pad - w_width) / 2)
+
+        out = torch.zeros(size=[number, filter_size, out_height, out_width], dtype=x.dtype, device=x.device)
+
+        for n in range(number):
+
+            for i in range(out_height):
+
+                for j in range(out_width):
+                    x_slice = x_pad[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
+                    z = (x_slice * w).sum(dim=[1, 2, 3]) + b
+                    out[n, :, i, j] = z
+
         cache = (x, w, b, conv_param)
         return out, cache
 

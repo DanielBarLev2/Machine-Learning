@@ -175,3 +175,7 @@ A1-KNN_Classifier/pytorch101.py
 /A4-Fully_connected_NN/cifar-10-batches-py/
 /A4-Fully_connected_NN/debag.py
 /A4-Fully_connected_NN/cifar-10-python.tar.gz
+/A4-Fully_connected_NN/models/best_overfit_five_layer_net.pth.pth
+/A4-Fully_connected_NN/models/best_two_layer_net.pth
+/A3-Neural_Network_Training/notebook.py
+/A5-conv_NN/fully_connected_networks.py
