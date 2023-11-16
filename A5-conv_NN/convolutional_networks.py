@@ -49,7 +49,7 @@ class Conv(object):
         stride = conv_param['stride']
         pad = conv_param['pad']
 
-        # Pad the input
+        # pad the input
         x_pad = torch.nn.functional.pad(input=x, pad=(pad, pad, pad, pad), value=0)
 
         # output tensor dimensions and initialization
@@ -71,11 +71,11 @@ class Conv(object):
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         A naive implementation of the backward pass for a convolutional layer.
           Inputs:
-        - dout: Upstream derivatives.
+        - d_out: Upstream derivatives.
         - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
 
         Returns a tuple of:
@@ -83,15 +83,33 @@ class Conv(object):
         - dw: Gradient with respect to w
         - db: Gradient with respect to b
         """
-        dx, dw, db = None, None, None
-        ###############################################################
-        # TODO: Implement the convolutional backward pass.            #
-        ###############################################################
-        # Replace "pass" statement with your code
-        pass
-        ###############################################################
-        #                       END OF YOUR CODE                      #
-        ###############################################################
+        x, w, b, conv_param = cache
+        number, chanel, x_height, x_width = x.shape
+        filter_size, _, w_height, w_width = w.shape
+        stride = conv_param['stride']
+
+        dx = torch.zeros_like(x)
+        dw = torch.zeros_like(w)
+
+        # backpropagation through the convolutional layer
+        for n in range(number):
+
+            for f in range(filter_size):
+
+                for i in range(w_height):
+
+                    for j in range(w_width):
+                        # slice the input and weight tensors
+                        x_slice = x[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
+                        # each filter derivative is the sliced window times the scalar in the output
+                        dw[f, :, :, :] += x_slice * d_out[n, f, i, j]
+
+                        dx[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width] \
+                            += w[f, :, :, :] * d_out[n, f, i, j]
+
+        # Compute db by summing the gradients over all samples and spatial positions
+        db = torch.sum(d_out, dim=(0, 2, 3))
+
         return dx, dw, db
 
 
