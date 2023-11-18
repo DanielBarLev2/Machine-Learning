@@ -90,25 +90,21 @@ class Conv(object):
 
         dx = torch.zeros_like(x)
         dw = torch.zeros_like(w)
+        db = torch.zeros_like(b)
 
         # backpropagation through the convolutional layer
         for n in range(number):
 
             for f in range(filter_size):
 
-                for i in range(w_height):
+                for i in range(0, x_height - w_height + 1, stride):
+                    for j in range(0, x_width - w_width + 1, stride):
+                        x_slice = x[n, :, i:i + w_height, j:j + w_width]
+                        dw[f, :, :, :] += x_slice * d_out[n, f, i // stride, j // stride]
+                        dx[n, :, i:i + w_height, j:j + w_width] += w[f, :, :, :] * d_out[n, f, i // stride, j // stride]
 
-                    for j in range(w_width):
-                        # slice the input and weight tensors
-                        x_slice = x[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
-                        # each filter derivative is the sliced window times the scalar in the output
-                        dw[f, :, :, :] += x_slice * d_out[n, f, i, j]
-
-                        dx[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width] \
-                            += w[f, :, :, :] * d_out[n, f, i, j]
-
-        # Compute db by summing the gradients over all samples and spatial positions
-        db = torch.sum(d_out, dim=(0, 2, 3))
+                # Compute db by summing the gradients over all samples and spatial positions
+            db = torch.sum(d_out, dim=(0, 2, 3))
 
         return dx, dw, db
 
@@ -151,7 +147,8 @@ class MaxPool(object):
                 for i in range(out_height):
 
                     for j in range(out_width):
-                        x_slice = x[n, :, i * stride:i * stride + pool_height, j * stride:j * stride + pool_width]
+                        # preform the max pooling
+                        x_slice = x[n, c, i * stride:i * stride + pool_height, j * stride:j * stride + pool_width]
                         out[n, c, i, j] = torch.max(x_slice)
 
         cache = (x, pool_param)
@@ -167,7 +164,26 @@ class MaxPool(object):
         Returns:
         - dx: Gradient with respect to x
         """
-        dx = None
+        x, conv_param = cache
+        number, chanel, x_height, x_width = x.shape
+        _, _, out_height, out_width = d_out.shape
+
+        stride = conv_param['stride']
+        pool_height = conv_param['pool_height']
+        pool_width = conv_param['pool_width']
+
+        dx = torch.zeros_like(x)
+
+        for n in range(number):
+
+            for c in range(chanel):
+
+                for i in range(out_height):
+
+                    for j in range(out_width):
+                        x_slice = x[n, c, i * stride:i * stride + pool_height, j * stride:j * stride + pool_width]
+                        row, col = divmod(x_slice.argmax().item(), x_slice.shape[1])
+                        dx[n, c, i * stride + row, j * stride + col] += d_out[n, c, i, j]
 
         return dx
 
