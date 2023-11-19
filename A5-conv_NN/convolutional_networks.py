@@ -53,8 +53,8 @@ class Conv(object):
         x_pad = torch.nn.functional.pad(input=x, pad=(pad, pad, pad, pad), value=0)
 
         # output tensor dimensions and initialization
-        out_height = math.floor(1 + (x_height + 2 * pad - w_height) / 2)
-        out_width = math.floor(1 + (x_width + 2 * pad - w_width) / 2)
+        out_height = math.floor(1 + (x_height + 2 * pad - w_height) / stride)
+        out_width = math.floor(1 + (x_width + 2 * pad - w_width) / stride)
 
         out = torch.zeros(size=[number, filter_size, out_height, out_width], dtype=x.dtype, device=x.device)
 
@@ -84,27 +84,32 @@ class Conv(object):
         - db: Gradient with respect to b
         """
         x, w, b, conv_param = cache
-        number, chanel, x_height, x_width = x.shape
+        numbers, channels, x_height, x_width = x.shape
         filter_size, _, w_height, w_width = w.shape
         stride = conv_param['stride']
+        pad = conv_param['pad']
+
+        # x_pad = torch.nn.functional.pad(input=x, pad=[pad, pad, pad, pad], value=0)
 
         dx = torch.zeros_like(x)
         dw = torch.zeros_like(w)
-        db = torch.zeros_like(b)
 
         # backpropagation through the convolutional layer
-        for n in range(number):
+        for n in range(numbers):
 
             for f in range(filter_size):
 
-                for i in range(0, x_height - w_height + 1, stride):
-                    for j in range(0, x_width - w_width + 1, stride):
-                        x_slice = x[n, :, i:i + w_height, j:j + w_width]
-                        dw[f, :, :, :] += x_slice * d_out[n, f, i // stride, j // stride]
-                        dx[n, :, i:i + w_height, j:j + w_width] += w[f, :, :, :] * d_out[n, f, i // stride, j // stride]
+                for i in range(w_height):
 
-                # Compute db by summing the gradients over all samples and spatial positions
-            db = torch.sum(d_out, dim=(0, 2, 3))
+                    for j in range(w_width):
+
+                        for c in range(d_out.shape[1]):
+                            # sliced window
+                            x_slice = x[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
+                            dw[f, :, i, j] += (x_slice * d_out[n, c, i, j]).sum(dim=(1, 2))
+
+        # dL/dB
+        db = d_out.sum(dim=(0, 2, 3))
 
         return dx, dw, db
 
