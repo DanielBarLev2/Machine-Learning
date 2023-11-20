@@ -84,35 +84,59 @@ class Conv(object):
         - db: Gradient with respect to b
         """
         x, w, b, conv_param = cache
-        numbers, channels, x_height, x_width = x.shape
-        filter_size, _, w_height, w_width = w.shape
         stride = conv_param['stride']
         pad = conv_param['pad']
 
-        # x_pad = torch.nn.functional.pad(input=x, pad=[pad, pad, pad, pad], value=0)
+        numbers, filter, d_out_height, d_out_width = d_out.shape
+        filter_size, channel, w_height, w_width = w.shape
+
+        x_pad = torch.nn.functional.pad(input=x, pad=[pad, pad, pad, pad], value=0)
+        d_out_pad = torch.nn.functional.pad(input=d_out, pad=[1, 1, 1, 1], value=0)
 
         dx = torch.zeros_like(x)
         dw = torch.zeros_like(w)
+        db = torch.zeros_like(b)
 
         # backpropagation through the convolutional layer
         for n in range(numbers):
 
-            for f in range(filter_size):
+            for f in range(filter):
 
-                for i in range(w_height):
+                for i in range(d_out_height):
 
-                    for j in range(w_width):
+                    for j in range(d_out_width):
+                        # dL/dW
+                        x_slice = x_pad[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
+                        dw[f, :, :, :] += (x_slice * d_out[n, f, i, j])
 
-                        for c in range(d_out.shape[1]):
-                            # sliced window
-                            x_slice = x[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
-                            dw[f, :, i, j] += (x_slice * d_out[n, c, i, j]).sum(dim=(1, 2))
+                        # dL/dX
+                        w_flipped = torch.flip(torch.flip(w, dims=(2,)), dims=(3,))
+
+                        dx[n, f, :, :] += conv_2d(x=d_out_pad, y=w_flipped, stride=stride)
 
         # dL/dB
         db = d_out.sum(dim=(0, 2, 3))
 
         return dx, dw, db
 
+
+def conv_2d(x, y, stride):
+    """
+    preforms the convolution between x and y.
+    inputs: 2-d tensors
+    output: 2-d tensor representing the convolution between x and y.
+    """
+    x_height, x_width = x.shape
+    y_height, y_width = y.shape
+
+    out = torch.zeros_like(y)
+
+    for i in range(y_height):
+
+        for j in range(y_width):
+            out[i, j] = x[i * stride: i * stride + x_height, j * stride:j * stride + x_width] * y[i, j]
+
+    return out
 
 class MaxPool(object):
 
