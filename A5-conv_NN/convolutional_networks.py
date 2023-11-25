@@ -87,32 +87,30 @@ class Conv(object):
         stride = conv_param['stride']
         pad = conv_param['pad']
 
+        _, _, x_height, x_width = x.shape
         numbers, filter, d_out_height, d_out_width = d_out.shape
         filter_size, channel, w_height, w_width = w.shape
 
         x_pad = torch.nn.functional.pad(input=x, pad=[pad, pad, pad, pad], value=0)
-        d_out_pad = torch.nn.functional.pad(input=d_out, pad=[1, 1, 1, 1], value=0)
+        d_out_pad = torch.nn.functional.pad(input=d_out, pad=[pad, pad, pad, pad], value=0)
+        numbers, filter, d_out_height, d_out_width = d_out_pad.shape
 
         dx = torch.zeros_like(x)
         dw = torch.zeros_like(w)
-        db = torch.zeros_like(b)
 
         # backpropagation through the convolutional layer
         for n in range(numbers):
 
             for f in range(filter):
 
-                for i in range(d_out_height):
+                for c in range(channel):
 
-                    for j in range(d_out_width):
-                        # dL/dW
-                        x_slice = x_pad[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
-                        dw[f, :, :, :] += (x_slice * d_out[n, f, i, j])
+                    for i in range(d_out_height):
 
-                        # dL/dX
-                        w_flipped = torch.flip(torch.flip(w, dims=(2,)), dims=(3,))
-
-                        dx[n, f, :, :] += conv_2d(x=d_out_pad, y=w_flipped, stride=stride)
+                        for j in range(d_out_width):
+                            # dL/dW
+                            x_slice = x_pad[n, :, i * stride:i * stride + w_height, j * stride:j * stride + w_width]
+                            dw[f] += (x_slice * d_out[n, f, i, j])
 
         # dL/dB
         db = d_out.sum(dim=(0, 2, 3))
@@ -120,23 +118,23 @@ class Conv(object):
         return dx, dw, db
 
 
-def conv_2d(x, y, stride):
+def conv_2d(x, y, window_size, stride):
     """
     preforms the convolution between x and y.
     inputs: 2-d tensors
     output: 2-d tensor representing the convolution between x and y.
     """
-    x_height, x_width = x.shape
     y_height, y_width = y.shape
+    window_height, window_width = window_size
+    out = torch.zeros(size=window_size, device=x.device)
 
-    out = torch.zeros_like(y)
+    for i in range(window_height):
 
-    for i in range(y_height):
-
-        for j in range(y_width):
-            out[i, j] = x[i * stride: i * stride + x_height, j * stride:j * stride + x_width] * y[i, j]
+        for j in range(window_width):
+            out[i, j] += ((x[i * stride: i * stride + y_height, j * stride:j * stride + y_width] * y).sum())
 
     return out
+
 
 class MaxPool(object):
 
@@ -280,9 +278,9 @@ class ThreeLayerConvNet(object):
 
     def save(self, path):
         checkpoint = {
-          'reg': self.reg,
-          'dtype': self.dtype,
-          'params': self.params,
+            'reg': self.reg,
+            'dtype': self.dtype,
+            'params': self.params,
         }
         torch.save(checkpoint, path)
         print("Saved in {}".format(path))
@@ -372,6 +370,7 @@ class DeepConvNet(object):
     consisting of N images, each with height H and width W and with C input
     channels.
     """
+
     def __init__(self,
                  input_dims=(3, 32, 32),
                  num_filters=[8, 8, 8, 8, 8],
@@ -407,7 +406,7 @@ class DeepConvNet(object):
         - device: device to use for computation. 'cpu' or 'cuda'
         """
         self.params = {}
-        self.num_layers = len(num_filters)+1
+        self.num_layers = len(num_filters) + 1
         self.max_pools = max_pools
         self.batchnorm = batchnorm
         self.reg = reg
@@ -465,13 +464,13 @@ class DeepConvNet(object):
 
     def save(self, path):
         checkpoint = {
-          'reg': self.reg,
-          'dtype': self.dtype,
-          'params': self.params,
-          'num_layers': self.num_layers,
-          'max_pools': self.max_pools,
-          'batchnorm': self.batchnorm,
-          'bn_params': self.bn_params,
+            'reg': self.reg,
+            'dtype': self.dtype,
+            'params': self.params,
+            'num_layers': self.num_layers,
+            'max_pools': self.max_pools,
+            'batchnorm': self.batchnorm,
+            'bn_params': self.bn_params,
         }
         torch.save(checkpoint, path)
         print("Saved in {}".format(path))
@@ -564,7 +563,7 @@ class DeepConvNet(object):
 
 
 def find_overfit_parameters():
-    weight_scale = 2e-3   # Experiment with this!
+    weight_scale = 2e-3  # Experiment with this!
     learning_rate = 1e-5  # Experiment with this!
     ###########################################################
     # TODO: Change weight_scale and learning_rate so your     #
@@ -905,6 +904,7 @@ class SpatialBatchNorm(object):
 
         return dx, dgamma, dbeta
 
+
 ##################################################################
 #           Fast Implementations and Sandwich Layers             #
 ##################################################################
@@ -937,8 +937,8 @@ class FastConv(object):
             layer.weight.grad = layer.bias.grad = None
         except RuntimeError:
             dx, dw, db = torch.zeros_like(tx), \
-                         torch.zeros_like(layer.weight), \
-                         torch.zeros_like(layer.bias)
+                torch.zeros_like(layer.weight), \
+                torch.zeros_like(layer.bias)
         return dx, dw, db
 
 
