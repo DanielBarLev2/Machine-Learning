@@ -3,9 +3,9 @@ Implements convolutional networks in PyTorch.
 WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
 """
 import math
-
 import torch
-from fully_connected_networks import Linear, ReLU
+from a3_helper import softmax_loss
+from fully_connected_networks import Linear, ReLU, LinearRelu
 
 
 def hello_convolutional_networks():
@@ -86,7 +86,6 @@ class Conv(object):
 
         x, w, b, conv_param = cache
         pad = conv_param['pad']
-        stride = conv_param['stride']
 
         numbers, channels, x_height, x_width = x.shape
         filters, _, w_height, w_width = w.shape
@@ -201,7 +200,7 @@ class ThreeLayerConvNet(object):
     """
     A three-layer convolutional network with the following architecture:
     conv - relu - 2x2 max pool - linear - relu - linear - softmax
-    The network operates on minibatches of data that have shape (N, C, H, W)
+    The network operates on mini-batches of data that have shape (N, C, H, W)
     consisting of N images, each with height H and width W and with C input
     channels.
     """
@@ -209,7 +208,7 @@ class ThreeLayerConvNet(object):
     def __init__(self,
                  input_dims=(3, 32, 32),
                  num_filters=32,
-                 filter_size=7,
+                 filter_dims=7,
                  hidden_dim=100,
                  num_classes=10,
                  weight_scale=1e-3,
@@ -221,42 +220,34 @@ class ThreeLayerConvNet(object):
         Inputs:
         - input_dims: Tuple (C, H, W) giving size of input data
         - num_filters: Number of filters to use in the convolutional layer
-        - filter_size: Width/height of filters to use in convolutional layer
+        - filters: Width/height of filters to use in convolutional layer
         - hidden_dim: Number of units to use in fully-connected hidden layer
         - num_classes: Number of scores to produce from the final linear layer.
         - weight_scale: Scalar giving standard deviation for random
           initialization of weights.
         - reg: Scalar giving L2 regularization strength
         - dtype: A torch data type object; all computations will be performed
-          using this datatype. float is faster but less accurate, so you
+          using this datatype.Float is faster but less accurate, so you
           should use double for numeric gradient checking.
-        - device: device to use for computation. 'cpu' or 'cuda'
+        - device: device to use for computation.'Cpu' or 'cuda'
         """
         self.params = {}
         self.reg = reg
         self.dtype = dtype
 
-        ######################################################################
-        # TODO: Initialize weights，biases for the three-layer convolutional #
-        # network. Weights should be initialized from a Gaussian             #
-        # centered at 0.0 with standard deviation equal to weight_scale;     #
-        # biases should be initialized to zero. All weights and biases       #
-        # should be stored in thedictionary self.params. Store weights and   #
-        # biases for the convolutional layer using the keys 'W1' and 'b1';   #
-        # use keys 'W2' and 'b2' for the weights and biases of the hidden    #
-        # linear layer, and key 'W3' and 'b3' for the weights and biases of  #
-        # the output linear layer                                            #
-        #                                                                    #
-        # IMPORTANT: For this assignment, you can assume that the padding    #
-        # and stride of the first convolutional layer are chosen so that     #
-        # **the width and height of the input are preserved**. Take a        #
-        # look at the start of the loss() function to see how that happens.  #
-        ######################################################################
-        # Replace "pass" statement with your code
-        pass
-        ######################################################################
-        #                            END OF YOUR CODE                        #
-        ######################################################################
+        channels, x_height, _ = input_dims
+        out_height = ((int(1 + (x_height + 2 * 2 - filter_dims) / 2) + 1) ** 2) * num_filters
+
+        # convolution layer no.1
+        self.params[f'W1'] = (torch.randn(num_filters, channels, filter_dims, filter_dims,
+                                          dtype=dtype, device=device) * weight_scale)
+        self.params[f'b1'] = torch.zeros(num_filters, dtype=dtype, device=device)
+        # fully connected layer no.1
+        self.params[f'W2'] = torch.randn(out_height, hidden_dim, dtype=dtype, device=device) * weight_scale
+        self.params[f'b2'] = torch.zeros(hidden_dim, dtype=dtype, device=device)
+        # fully connected layer no.2
+        self.params[f'W3'] = torch.randn(hidden_dim, num_classes, dtype=dtype, device=device) * weight_scale
+        self.params[f'b3'] = torch.zeros(num_classes, dtype=dtype, device=device)
 
     def save(self, path):
         checkpoint = {
@@ -274,43 +265,30 @@ class ThreeLayerConvNet(object):
         self.reg = checkpoint['reg']
         print("load checkpoint file: {}".format(path))
 
-    def loss(self, X, y=None):
+    def loss(self, x, y=None):
         """
         Evaluate loss and gradient for the three-layer convolutional network.
         Input / output: Same API as TwoLayerNet.
         """
-        X = X.to(self.dtype)
-        W1, b1 = self.params['W1'], self.params['b1']
-        W2, b2 = self.params['W2'], self.params['b2']
-        W3, b3 = self.params['W3'], self.params['b3']
+        x = x.to(self.dtype)
+        w1, b1 = self.params['W1'], self.params['b1']
+        w2, b2 = self.params['W2'], self.params['b2']
+        w3, b3 = self.params['W3'], self.params['b3']
 
-        # pass conv_param to the forward pass for the convolutional layer
-        # Padding and stride chosen to preserve the input spatial size
-        filter_size = W1.shape[2]
+        filter_size = w1.shape[2]
+
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
-
-        # pass pool_param to the forward pass for the max-pooling layer
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
-        scores = None
-        ######################################################################
-        # TODO: Implement the forward pass for three-layer convolutional     #
-        # net, computing the class scores for X and storing them in the      #
-        # scores variable.                                                   #
-        #                                                                    #
-        # Remember you can use functions defined in your implementation      #
-        # above                                                              #
-        ######################################################################
-        # Replace "pass" statement with your code
-        pass
-        ######################################################################
-        #                             END OF YOUR CODE                       #
-        ######################################################################
+        conv, pool_cache = ConvReluPool.forward(x=x, w=w1, b=b1, conv_param=conv_param, pool_param=pool_param)
+        hidden, linear_1_cache = LinearRelu.forward(x=conv, w=w2, b=b2)
+        scores, linear_2_cache = LinearRelu.forward(x=hidden, w=w3, b=b3)
 
         if y is None:
             return scores
 
         loss, grads = 0.0, {}
+        loss, d_loss = softmax_loss(x=scores, y=y)
         ####################################################################
         # TODO: Implement backward pass for three-layer convolutional net, #
         # storing the loss and gradients in the loss and grads variables.  #
@@ -951,7 +929,7 @@ class FastMaxPool(object):
         return dx
 
 
-class Conv_ReLU(object):
+class ConvRelu(object):
 
     @staticmethod
     def forward(x, w, b, conv_param):
@@ -972,17 +950,17 @@ class Conv_ReLU(object):
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         Backward pass for the conv-relu convenience layer.
         """
         conv_cache, relu_cache = cache
-        da = ReLU.backward(dout, relu_cache)
+        da = ReLU.backward(d_out, relu_cache)
         dx, dw, db = FastConv.backward(da, conv_cache)
         return dx, dw, db
 
 
-class Conv_ReLU_Pool(object):
+class ConvReluPool(object):
 
     @staticmethod
     def forward(x, w, b, conv_param, pool_param):
@@ -1005,13 +983,13 @@ class Conv_ReLU_Pool(object):
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         Backward pass for the conv-relu-pool
         convenience layer
         """
         conv_cache, relu_cache, pool_cache = cache
-        ds = FastMaxPool.backward(dout, pool_cache)
+        ds = FastMaxPool.backward(d_out, pool_cache)
         da = ReLU.backward(ds, relu_cache)
         dx, dw, db = FastConv.backward(da, conv_cache)
         return dx, dw, db
