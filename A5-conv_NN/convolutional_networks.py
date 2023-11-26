@@ -236,14 +236,24 @@ class ThreeLayerConvNet(object):
         self.dtype = dtype
 
         channels, x_height, _ = input_dims
-        out_height = ((int(1 + (x_height + 2 * 2 - filter_dims) / 2) + 1) ** 2) * num_filters
+
+        # H' = 1 + (H + 2 * pad - HH) / stride
+        # W' = 1 + (W + 2 * pad - WW) / stride
+        hh = input_dims[1] + 2 * ((filter_dims - 1) // 2) - filter_dims + 1
+        ww = input_dims[2] + 2 * ((filter_dims - 1) // 2) - filter_dims + 1
+
+        # H' = 1 + (H - pool_height) / stride
+        # W' = 1 + (W - pool_width) / stride
+        hhh = 1 + ((hh - 2) / 2)
+        www = 1 + ((ww - 2) / 2)
 
         # convolution layer no.1
         self.params[f'W1'] = (torch.randn(num_filters, channels, filter_dims, filter_dims,
                                           dtype=dtype, device=device) * weight_scale)
         self.params[f'b1'] = torch.zeros(num_filters, dtype=dtype, device=device)
         # fully connected layer no.1
-        self.params[f'W2'] = torch.randn(out_height, hidden_dim, dtype=dtype, device=device) * weight_scale
+        self.params[f'W2'] = (torch.randn(int(hhh * www * num_filters), hidden_dim, dtype=dtype, device=device) *
+                              weight_scale)
         self.params[f'b2'] = torch.zeros(hidden_dim, dtype=dtype, device=device)
         # fully connected layer no.2
         self.params[f'W3'] = torch.randn(hidden_dim, num_classes, dtype=dtype, device=device) * weight_scale
@@ -280,31 +290,26 @@ class ThreeLayerConvNet(object):
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
-        conv, pool_cache = ConvReluPool.forward(x=x, w=w1, b=b1, conv_param=conv_param, pool_param=pool_param)
+        # forward pass
+        conv, pool_1_cache = ConvReluPool.forward(x=x, w=w1, b=b1, conv_param=conv_param, pool_param=pool_param)
         hidden, linear_1_cache = LinearRelu.forward(x=conv, w=w2, b=b2)
-        scores, linear_2_cache = LinearRelu.forward(x=hidden, w=w3, b=b3)
+        scores, linear_2_cache = Linear.forward(x=hidden, w=w3, b=b3)
 
         if y is None:
             return scores
 
-        loss, grads = 0.0, {}
+        # computing loss
         loss, d_loss = softmax_loss(x=scores, y=y)
-        ####################################################################
-        # TODO: Implement backward pass for three-layer convolutional net, #
-        # storing the loss and gradients in the loss and grads variables.  #
-        # Compute data loss using softmax, and make sure that grads[k]     #
-        # holds the gradients for self.params[k]. Don't forget to add      #
-        # L2 regularization!                                               #
-        #                                                                  #
-        # NOTE: To ensure that your implementation matches ours and you    #
-        # pass the automated tests, make sure that your L2 regularization  #
-        # does not include a factor of 0.5                                 #
-        ####################################################################
-        # Replace "pass" statement with your code
-        pass
-        ###################################################################
-        #                             END OF YOUR CODE                    #
-        ###################################################################
+
+        # L2 regularization
+        loss += self.reg * (torch.sum(w1 * w1) + torch.sum(w2 * w2) + torch.sum((w3 * w3)))
+
+        # backpropagation
+        grads = {}
+
+        layer_3_dx, grads['W3'], grads['b3'] = Linear.backward(d_out=d_loss, cache=linear_2_cache)
+        layer_2_dx, grads['W2'], grads['b2'] = LinearRelu.backward(d_out=layer_3_dx, cache=linear_1_cache)
+        dx, grads['W1'], grads['b1'] = ConvReluPool.backward(d_out=layer_2_dx, cache=pool_1_cache)
 
         return loss, grads
 
