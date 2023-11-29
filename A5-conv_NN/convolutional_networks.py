@@ -324,23 +324,23 @@ class DeepConvNet(object):
 
     The network will have the following architecture:
 
-    {conv - [batchnorm?] - relu - [pool?]} x (L - 1) - linear
+    {Conv - [batch-norm?] - relu - [pool?]} x (L - 1) - linear
 
-    Each {...} structure is a "macro layer" consisting of a convolution layer,
-    an optional batch normalization layer, a ReLU nonlinearity, and an optional
-    pooling layer. After L-1 such macro layers, a single fully-connected layer
+    Each "{...}" structure is a "macro layer" consisting of a convolution layer,
+    an optional batch normalization layer, a ReLU non-linearity, and an optional
+    pooling layer. After L-1 such macro layers, a single fully connected layer
     is used to predict the class scores.
 
-    The network operates on minibatches of data that have shape (N, C, H, W)
+    The network operates on mini-batches of data that have shape (N, C, H, W)
     consisting of N images, each with height H and width W and with C input
     channels.
     """
 
     def __init__(self,
                  input_dims=(3, 32, 32),
-                 num_filters=[8, 8, 8, 8, 8],
-                 max_pools=[0, 1, 2, 3, 4],
-                 batchnorm=False,
+                 num_filters=(8, 8, 8, 8, 8),
+                 max_pools=(0, 1, 2, 3, 4),
+                 batch_norm=False,
                  num_classes=10,
                  weight_scale=1e-3,
                  reg=0.0,
@@ -356,56 +356,44 @@ class DeepConvNet(object):
           convolutional filters to use in each macro layer.
         - max_pools: List of integers giving the indices of the macro
           layers that should have max pooling (zero-indexed).
-        - batchnorm: Whether to include batch normalization in each macro layer
+        - batch_norm: Whether to include batch normalization in each macro layer
         - num_classes: Number of scores to produce from the final linear layer.
         - weight_scale: Scalar giving standard deviation for random
-          initialization of weights, or the string "kaiming" to use Kaiming
-          initialization instead
-        - reg: Scalar giving L2 regularization strength. L2 regularization
+        - reg: Scalar giving L2 regularization strength, L2 regularization
           should only be applied to convolutional and fully-connected weight
-          matrices; it should not be applied to biases or to batchnorm scale
+          matrices; it should not be applied to biases or to batch_norm scale
           and shifts.
         - dtype: A torch data type object; all computations will be performed
-          using this datatype. float is faster but less accurate, so you should
+          using this datatype. Float is faster but less accurate, so you should
           use double for numeric gradient checking.
-        - device: device to use for computation. 'cpu' or 'cuda'
+        - device: device to use for computation. 'Cpu' or 'cuda'
         """
-        self.params = {}
         self.num_layers = len(num_filters) + 1
         self.max_pools = max_pools
-        self.batchnorm = batchnorm
+        self.batch_norm = batch_norm
         self.reg = reg
         self.dtype = dtype
 
         if device == 'cuda':
             device = 'cuda:0'
 
-        #####################################################################
-        # TODO: Initialize the parameters for the DeepConvNet. All weights, #
-        # biases, and batchnorm scale and shift parameters should be        #
-        # stored in the dictionary self.params.                             #
-        #                                                                   #
-        # Weights for conv and fully-connected layers should be initialized #
-        # according to weight_scale. Biases should be initialized to zero.  #
-        # Batchnorm scale (gamma) and shift (beta) parameters should be     #
-        # initilized to ones and zeros respectively.                        #
-        #####################################################################
-        # Replace "pass" statement with your code
-        pass
-        ################################################################
-        #                      END OF YOUR CODE                        #
-        ################################################################
+        self.params = {}
+        channel, _, _ = input_dims
 
-        # With batch normalization we need to keep track of running
-        # means and variances, so we need to pass a special bn_param
-        # object to each batch normalization layer. You should pass
-        # self.bn_params[0] to the forward pass of the first batch
-        # normalization layer, self.bn_params[1] to the forward
-        # pass of the second batch normalization layer, etc.
+        # initializing weights
+        for layer in range(self.num_layers - 1):
+            wight = (torch.randn(num_filters[layer], channel, 3, 3, dtype=dtype, device=device) * weight_scale)
+            basis = torch.zeros(num_filters[layer], dtype=dtype, device=device)
+
+            self.params[f'W{layer + 1}'] = wight
+            self.params[f'b{layer + 1}'] = basis
+
+            channel = num_filters[layer]
+
+        # bach normalization
         self.bn_params = []
         if self.batchnorm:
-            self.bn_params = [{'mode': 'train'}
-                              for _ in range(len(num_filters))]
+            self.bn_params = [{'mode': 'train'} for _ in range(len(num_filters))]
 
         # Check that we got the right number of parameters
         if not self.batchnorm:
@@ -461,16 +449,20 @@ class DeepConvNet(object):
 
         print("load checkpoint file: {}".format(path))
 
-    def loss(self, X, y=None):
+    def loss(self, x, y=None):
         """
         Evaluate loss and gradient for the deep convolutional
         network.
         Input / output: Same API as ThreeLayerConvNet.
         """
-        X = X.to(self.dtype)
-        mode = 'test' if y is None else 'train'
+        x = x.to(self.dtype)
 
-        # Set train/test mode for batchnorm params since they
+        if y:
+            mode = 'test'
+        else:
+            mode = 'train'
+
+        # Set train/test mode for batch norm params since they
         # behave differently during training and testing.
         if self.batchnorm:
             for bn_param in self.bn_params:
