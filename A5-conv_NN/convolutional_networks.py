@@ -373,30 +373,44 @@ class DeepConvNet(object):
         self.batch_norm = batch_norm
         self.reg = reg
         self.dtype = dtype
+        self.filter_size = 3
 
         if device == 'cuda':
             device = 'cuda:0'
 
+        index = 0
         self.params = {}
-        channel, _, _ = input_dims
+        filter = num_filters[0]
+        channel, input_height, input_width = input_dims
 
         # initializing weights
-        for layer in range(self.num_layers - 1):
-            wight = (torch.randn(num_filters[layer], channel, 3, 3, dtype=dtype, device=device) * weight_scale)
-            basis = torch.zeros(num_filters[layer], dtype=dtype, device=device)
+        for layer, filter in enumerate(num_filters):
+            index = layer + 1
 
-            self.params[f'W{layer + 1}'] = wight
-            self.params[f'b{layer + 1}'] = basis
+            self.params[f'W{index}'] = torch.randn(filter, channel, self.filter_size, self.filter_size,
+                                                   dtype=dtype, device=device) * weight_scale
+            self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
 
-            channel = num_filters[layer]
+            channel = filter
+
+            if layer in self.max_pools:
+                index += 1
+
+                input_height = int(1 + (((input_height + 2 * 1 - 3) / 1 - 1) / 2))
+                input_width = int(1 + (((input_width + 2 * 1 - 3) / 1 - 1) / 2))
+
+        # add the last fully connected layer
+        self.params[f'W{index}'] = torch.randn(int(filter * input_height * input_width), num_classes,
+                                               dtype=dtype, device=device) * weight_scale
+        self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
 
         # bach normalization
         self.bn_params = []
-        if self.batchnorm:
+        if self.batch_norm:
             self.bn_params = [{'mode': 'train'} for _ in range(len(num_filters))]
 
-        # Check that we got the right number of parameters
-        if not self.batchnorm:
+        # check that we got the right number of parameters
+        if not self.batch_norm:
             params_per_macro_layer = 2  # weight and bias
         else:
             params_per_macro_layer = 4  # weight, bias, scale, shift
@@ -406,7 +420,7 @@ class DeepConvNet(object):
         msg = msg % (len(self.params), num_params)
         assert len(self.params) == num_params, msg
 
-        # Check that all parameters have the correct device and dtype:
+        # check that all parameters have the correct device and dtype:
         for k, param in self.params.items():
             msg = 'param "%s" has device %r; should be %r' \
                   % (k, param.device, device)
@@ -422,7 +436,7 @@ class DeepConvNet(object):
             'params': self.params,
             'num_layers': self.num_layers,
             'max_pools': self.max_pools,
-            'batchnorm': self.batchnorm,
+            'batchnorm': self.batch_norm,
             'bn_params': self.bn_params,
         }
         torch.save(checkpoint, path)
@@ -435,7 +449,7 @@ class DeepConvNet(object):
         self.reg = checkpoint['reg']
         self.num_layers = checkpoint['num_layers']
         self.max_pools = checkpoint['max_pools']
-        self.batchnorm = checkpoint['batchnorm']
+        self.batch_norm = checkpoint['batchnorm']
         self.bn_params = checkpoint['bn_params']
 
         for p in self.params:
@@ -455,66 +469,68 @@ class DeepConvNet(object):
         network.
         Input / output: Same API as ThreeLayerConvNet.
         """
-        x = x.to(self.dtype)
+        z = x.to(self.dtype)
+        caches = {}
+        filter_size = 3
+        # padding and stride chosen to preserve the input spatial size
+        conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+        pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
-        if y:
+        # set mode
+        if y is not None:
             mode = 'test'
         else:
             mode = 'train'
 
-        # Set train/test mode for batch norm params since they
-        # behave differently during training and testing.
-        if self.batchnorm:
+        # Set train/test mode for batch norm params since they behave differently during training and testing.
+        if self.batch_norm:
             for bn_param in self.bn_params:
                 bn_param['mode'] = mode
-        scores = None
 
-        # pass conv_param to the forward pass for the
-        # convolutional layer
-        # Padding and stride chosen to preserve the input
-        # spatial size
-        filter_size = 3
-        conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+        # forward pass
+        for layer in range(self.num_layers - 1):
 
-        # pass pool_param to the forward pass for the max-pooling layer
-        pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+            wight = self.params[f'W{layer + 1}']
+            basis = self.params[f'b{layer + 1}']
 
-        scores = None
-        #########################################################
-        # TODO: Implement the forward pass for the DeepConvNet, #
-        # computing the class scores for X and storing them in  #
-        # the scores variable.                                  #
-        #                                                       #
-        # You should use the fast versions of convolution and   #
-        # max pooling layers, or the convolutional sandwich     #
-        # layers, to simplify your implementation.              #
-        #########################################################
-        # Replace "pass" statement with your code
-        pass
-        #####################################################
-        #                 END OF YOUR CODE                  #
-        #####################################################
+            if layer in self.max_pools:
+                z, cache = ConvReluPool.forward(x=z, w=wight, b=basis, conv_param=conv_param, pool_param=pool_param)
+            else:
+                z, cache = ConvRelu.forward(x=z, w=wight, b=basis, conv_param=conv_param)
+
+            caches[f'cache{layer + 1}'] = cache
+
+        # forward pass for last fully connected layer
+        z, cache = Linear.forward(x=z, w=self.params[f'W{self.num_layers}'], b=self.params[f'b{self.num_layers}'])
+        caches[f'cache{self.num_layers}'] = cache
+
+        scores = z
 
         if y is None:
             return scores
 
-        loss, grads = 0, {}
-        ###################################################################
-        # TODO: Implement the backward pass for the DeepConvNet,          #
-        # storing the loss and gradients in the loss and grads variables. #
-        # Compute data loss using softmax, and make sure that grads[k]    #
-        # holds the gradients for self.params[k]. Don't forget to add     #
-        # L2 regularization!                                              #
-        #                                                                 #
-        # NOTE: To ensure that your implementation matches ours and you   #
-        # pass the automated tests, make sure that your L2 regularization #
-        # does not include a factor of 0.5                                #
-        ###################################################################
-        # Replace "pass" statement with your code
-        pass
-        #############################################################
-        #                       END OF YOUR CODE                    #
-        #############################################################
+        grads = {}
+
+        # computing loss
+        loss, dx = softmax_loss(x=scores, y=y)
+
+        # backward pass for last fully connected layer
+        dx, grads[f'W{self.num_layers}'], grads[f'b{self.num_layers}'] \
+            = Linear.backward(d_out=dx, cache=caches[f'cache{self.num_layers}'])
+
+        # L2 regularization
+        reg = torch.sum(self.params[f'W{self.num_layers}'] * self.params[f'W{self.num_layers}'])
+
+        for layer in range(self.num_layers, 0, -1):
+
+            # L2 regularization
+            reg += torch.sum(self.params[f'W{layer}'] * self.params[f'W{layer}'])
+
+            if layer in self.max_pools:
+                dx, grads[f'W{layer}'], grads[f'b{layer}'] = \
+                    ConvReluPool.backward(d_out=dx, cache=caches[f'cache{self.num_layers}'])
+
+        loss += reg * self.reg
 
         return loss, grads
 
