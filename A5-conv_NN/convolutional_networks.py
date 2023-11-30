@@ -373,13 +373,13 @@ class DeepConvNet(object):
         self.batch_norm = batch_norm
         self.reg = reg
         self.dtype = dtype
-        self.filter_size = 3
+        self.params = {}
 
         if device == 'cuda':
             device = 'cuda:0'
 
         index = 0
-        self.params = {}
+        stride, pad, filter_size, pool_size, pool_stride = 1, 1, 3, 2, 2
         filter = num_filters[0]
         channel, input_height, input_width = input_dims
 
@@ -387,22 +387,23 @@ class DeepConvNet(object):
         for layer, filter in enumerate(num_filters):
             index = layer + 1
 
-            self.params[f'W{index}'] = torch.randn(filter, channel, self.filter_size, self.filter_size,
+            self.params[f'W{index}'] = torch.randn(filter, channel, filter_size, filter_size,
                                                    dtype=dtype, device=device) * weight_scale
             self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
 
             channel = filter
 
+            # in the case of max-pooling, update the inputs' dimensions
             if layer in self.max_pools:
-                index += 1
+                input_height = int(1 + ((1 + (input_height + 2 * pad - filter_size) / stride - pool_size) / 2))
+                input_width = int(1 + ((1 + (input_width + 2 * pad - filter_size) / stride - pool_size) / 2))
 
-                input_height = int(1 + (((input_height + 2 * 1 - 3) / 1 - 1) / 2))
-                input_width = int(1 + (((input_width + 2 * 1 - 3) / 1 - 1) / 2))
+        index += 1
 
-        # add the last fully connected layer
+        # initialize the last fully connected weight
         self.params[f'W{index}'] = torch.randn(int(filter * input_height * input_width), num_classes,
                                                dtype=dtype, device=device) * weight_scale
-        self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
+        self.params[f'b{index}'] = torch.zeros(num_classes, dtype=dtype, device=device)
 
         # bach normalization
         self.bn_params = []
@@ -472,6 +473,7 @@ class DeepConvNet(object):
         z = x.to(self.dtype)
         caches = {}
         filter_size = 3
+
         # padding and stride chosen to preserve the input spatial size
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
@@ -482,7 +484,7 @@ class DeepConvNet(object):
         else:
             mode = 'train'
 
-        # Set train/test mode for batch norm params since they behave differently during training and testing.
+        # set train/test mode for batch norm params since they behave differently during training and testing.
         if self.batch_norm:
             for bn_param in self.bn_params:
                 bn_param['mode'] = mode
@@ -491,17 +493,18 @@ class DeepConvNet(object):
         for layer in range(self.num_layers - 1):
 
             wight = self.params[f'W{layer + 1}']
-            basis = self.params[f'b{layer + 1}']
+            bias = self.params[f'b{layer + 1}']
 
             if layer in self.max_pools:
-                z, cache = ConvReluPool.forward(x=z, w=wight, b=basis, conv_param=conv_param, pool_param=pool_param)
+                z, cache = ConvReluPool.forward(x=z, w=wight, b=bias, conv_param=conv_param, pool_param=pool_param)
             else:
-                z, cache = ConvRelu.forward(x=z, w=wight, b=basis, conv_param=conv_param)
+                z, cache = ConvRelu.forward(x=z, w=wight, b=bias, conv_param=conv_param)
 
             caches[f'cache{layer + 1}'] = cache
 
         # forward pass for last fully connected layer
-        z, cache = Linear.forward(x=z, w=self.params[f'W{self.num_layers}'], b=self.params[f'b{self.num_layers}'])
+        wight, bias = self.params[f'W{self.num_layers}'], self.params[f'b{self.num_layers}']
+        z, cache = Linear.forward(x=z, w=wight, b=bias)
         caches[f'cache{self.num_layers}'] = cache
 
         scores = z
@@ -515,38 +518,33 @@ class DeepConvNet(object):
         loss, dx = softmax_loss(x=scores, y=y)
 
         # backward pass for last fully connected layer
-        dx, grads[f'W{self.num_layers}'], grads[f'b{self.num_layers}'] \
-            = Linear.backward(d_out=dx, cache=caches[f'cache{self.num_layers}'])
+        dx, dw, db = Linear.backward(d_out=dx, cache=caches[f'cache{self.num_layers}'])
+        grads[f'W{self.num_layers}'], grads[f'b{self.num_layers}'] = dw, db
 
-        # L2 regularization
-        reg = torch.sum(self.params[f'W{self.num_layers}'] * self.params[f'W{self.num_layers}'])
+        # backward pass
+        for layer in range(self.num_layers - 1, 0, -1):
 
-        for layer in range(self.num_layers, 0, -1):
+            if layer - 1 in self.max_pools:
+                dx, dw, db = ConvReluPool.backward(d_out=dx, cache=caches[f'cache{layer}'])
+                grads[f'W{layer}'], grads[f'b{layer}'] = dw + 2 * dw * self.reg, db
+            else:
+                dx, dw, db = ConvRelu.backward(d_out=dx, cache=caches[f'cache{layer}'])
+                grads[f'W{layer}'], grads[f'b{layer}'] = dw + 2 * dw * self.reg, db
 
-            # L2 regularization
-            reg += torch.sum(self.params[f'W{layer}'] * self.params[f'W{layer}'])
+        # l2 regularization
+        weight_sum = 0
 
-            if layer in self.max_pools:
-                dx, grads[f'W{layer}'], grads[f'b{layer}'] = \
-                    ConvReluPool.backward(d_out=dx, cache=caches[f'cache{self.num_layers}'])
+        for layer in range(self.num_layers):
+            weight_sum = torch.sum(self.params[f'W{layer + 1}'] ** 2)
 
-        loss += reg * self.reg
+        loss += weight_sum * self.reg
 
         return loss, grads
 
 
-def find_overfit_parameters():
-    weight_scale = 2e-3  # Experiment with this!
-    learning_rate = 1e-5  # Experiment with this!
-    ###########################################################
-    # TODO: Change weight_scale and learning_rate so your     #
-    # model achieves 100% training accuracy within 30 epochs. #
-    ###########################################################
-    # Replace "pass" statement with your code
-    pass
-    ###########################################################
-    #                       END OF YOUR CODE                  #
-    ###########################################################
+def find_over_fit_parameters():
+    weight_scale = 2e-1  # Experiment with this!
+    learning_rate = 1e-3  # Experiment with this!
     return weight_scale, learning_rate
 
 
