@@ -563,59 +563,35 @@ def create_convolutional_solver_instance(data_dict, dtype, device):
     return solver
 
 
-def kaiming_initializer(Din, Dout, K=None, relu=True, device='cpu',
-                        dtype=torch.float32):
+def kaiming_initializer(din, d_out, K=None, relu=True, device='cpu', dtype=torch.float32):
     """
     Implement Kaiming initialization for linear and convolution layers.
 
     Inputs:
-    - Din, Dout: Integers giving the number of input and output dimensions
+    - din, d_out: Integers giving the number of input and output dimensions
       for this layer
     - K: If K is None, then initialize weights for a linear layer with
-      Din input dimensions and Dout output dimensions. Otherwise if K is
-      a nonnegative integer then initialize the weights for a convolution
-      layer with Din input channels, Dout output channels, and a kernel size
+      din input dimensions and d_out output dimensions. Otherwise, if K is
+      a non-negative integer, then initialize the weights for a convolution
+      layer with Din input channels, d_out output channels, and a kernel size
       of KxK.
     - relu: If ReLU=True, then initialize weights with a gain of 2 to
-      account for a ReLU nonlinearity (Kaiming initializaiton); otherwise
+      account for a ReLU non-linearity (Kaiming initialization); otherwise
       initialize weights with a gain of 1 (Xavier initialization).
-    - device, dtype: The device and datatype for the output tensor.
+    - Device, dtype: The device and datatype for the output tensor.
 
     Returns:
     - weight: A torch Tensor giving initialized weights for this layer.
-      For a linear layer it should have shape (Din, Dout); for a
-      convolution layer it should have shape (Dout, Din, K, K).
+      For a linear layer it should have shape (Din, d_out); for a
+      convolution layer it should have shape (d_out, Din, K, K).
     """
     gain = 2. if relu else 1.
-    weight = None
+
     if K is None:
-        ###################################################################
-        # TODO: Implement Kaiming initialization for linear layer.        #
-        # The weight scale is sqrt(gain / fan_in),                        #
-        # where gain is 2 if ReLU is followed by the layer, or 1 if not,  #
-        # and fan_in = num_in_channels (= Din).                           #
-        # The output should be a tensor in the designated size, dtype,    #
-        # and device.                                                     #
-        ###################################################################
-        # Replace "pass" statement with your code
-        pass
-        ###################################################################
-        #                            END OF YOUR CODE                     #
-        ###################################################################
+        weight = torch.randn(din, d_out, device=device, dtype=dtype) * (gain / din) ** (1 / 2)
     else:
-        ###################################################################
-        # TODO: Implement Kaiming initialization for convolutional layer. #
-        # The weight scale is sqrt(gain / fan_in),                        #
-        # where gain is 2 if ReLU is followed by the layer, or 1 if not,  #
-        # and fan_in = num_in_channels (= Din) * K * K                    #
-        # The output should be a tensor in the designated size, dtype,    #
-        # and device.                                                     #
-        ###################################################################
-        # Replace "pass" statement with your code
-        pass
-        ###################################################################
-        #                         END OF YOUR CODE                        #
-        ###################################################################
+        weight = torch.randn(din, d_out, K, K, device=device, dtype=dtype) * ((gain / (din * K * K)) ** (1 / 2))
+
     return weight
 
 
