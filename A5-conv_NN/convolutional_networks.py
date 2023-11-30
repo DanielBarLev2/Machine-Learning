@@ -4,8 +4,9 @@ WARNING: you SHOULD NOT use ".to()" or ".cuda()" in each implementation block.
 """
 import math
 import torch
+from eecs598 import Solver
 from a3_helper import softmax_loss
-from fully_connected_networks import Linear, ReLU, LinearRelu
+from fully_connected_networks import Linear, ReLU, LinearRelu, adam
 
 
 def hello_convolutional_networks():
@@ -388,7 +389,7 @@ class DeepConvNet(object):
             index = layer + 1
 
             # kaiming or std initialization
-            if weight_scale == 'kaiming':
+            if weight_initializer == 'kaiming':
                 self.params[f'W{index}'] = kaiming_initializer(filter, channel, K=filter_size,
                                                                device=device, dtype=dtype)
                 self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
@@ -408,7 +409,7 @@ class DeepConvNet(object):
         index += 1
 
         # initialize the last fully connected weight with kaiming or std initialization
-        if weight_scale == 'kaiming':
+        if weight_initializer == 'kaiming':
             self.params[f'W{index}'] = kaiming_initializer(int(filter * input_height * input_width), num_classes,
                                                            dtype=dtype, device=device)
             self.params[f'b{index}'] = torch.zeros(num_classes, dtype=dtype, device=device)
@@ -561,17 +562,37 @@ def find_over_fit_parameters():
 
 
 def create_convolutional_solver_instance(data_dict, dtype, device):
-    model = None
-    solver = None
-    #########################################################
-    # TODO: Train the best DeepConvNet that you can on      #
-    # CIFAR-10 within 60 seconds.                           #
-    #########################################################
-    # Replace "pass" statement with your code
-    pass
-    #########################################################
-    #                  END OF YOUR CODE                     #
-    #########################################################
+    weight_scale = 2e-1
+    learning_rate = 3e-3
+
+    num_train = 500
+    small_data = {'X_train': data_dict['X_train'][:num_train],
+                  'y_train': data_dict['y_train'][:num_train],
+                  'X_val': data_dict['X_val'],
+                  'y_val': data_dict['y_val'],
+                  }
+    
+    input_dims = small_data['X_train'].shape[1:]
+
+    model = DeepConvNet(input_dims=input_dims,
+                        num_classes=10,
+                        num_filters=[32, 64],
+                        max_pools=[0, 1],
+                        reg=1e-5,
+                        weight_scale=weight_scale,
+                        weight_initializer='kaiming',
+                        device=device,
+                        dtype=dtype)
+
+    solver = Solver(model=model,
+                    data=data_dict,
+                    print_every=50,
+                    num_epochs=2000,
+                    batch_size=128,
+                    update_rule=adam,
+                    optim_config={'learning_rate': learning_rate},
+                    device='cuda')
+
     return solver
 
 
