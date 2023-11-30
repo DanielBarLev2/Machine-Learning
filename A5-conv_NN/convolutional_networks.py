@@ -34,7 +34,7 @@ class Conv(object):
           - 'stride': The number of pixels between adjacent receptive fields in the horizontal and vertical directions.
           - 'Pad': The number of pixels that is used to zero-pad the input.
 
-        During padding, 'pad' zeros should be placed symmetrically (i.e equally on both sides) along the height and
+        During padding, 'pad' zeros should be placed symmetrically (i.e., equally on both sides) along the height and
         width axes of the input.
         Be careful not to modify the original input x directly.
 
@@ -387,9 +387,16 @@ class DeepConvNet(object):
         for layer, filter in enumerate(num_filters):
             index = layer + 1
 
-            self.params[f'W{index}'] = torch.randn(filter, channel, filter_size, filter_size,
-                                                   dtype=dtype, device=device) * weight_scale
-            self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
+            # kaiming or std initialization
+            if weight_scale == 'kaiming':
+                self.params[f'W{index}'] = kaiming_initializer(filter, channel, K=filter_size,
+                                                               device=device, dtype=dtype)
+                self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
+
+            else:
+                self.params[f'W{index}'] = torch.randn(filter, channel, filter_size, filter_size,
+                                                       dtype=dtype, device=device) * weight_scale
+                self.params[f'b{index}'] = torch.zeros(filter, dtype=dtype, device=device)
 
             channel = filter
 
@@ -400,10 +407,15 @@ class DeepConvNet(object):
 
         index += 1
 
-        # initialize the last fully connected weight
-        self.params[f'W{index}'] = torch.randn(int(filter * input_height * input_width), num_classes,
-                                               dtype=dtype, device=device) * weight_scale
-        self.params[f'b{index}'] = torch.zeros(num_classes, dtype=dtype, device=device)
+        # initialize the last fully connected weight with kaiming or std initialization
+        if weight_scale == 'kaiming':
+            self.params[f'W{index}'] = kaiming_initializer(int(filter * input_height * input_width), num_classes,
+                                                           dtype=dtype, device=device)
+            self.params[f'b{index}'] = torch.zeros(num_classes, dtype=dtype, device=device)
+        else:
+            self.params[f'W{index}'] = torch.randn(int(filter * input_height * input_width), num_classes,
+                                                   dtype=dtype, device=device) * weight_scale
+            self.params[f'b{index}'] = torch.zeros(num_classes, dtype=dtype, device=device)
 
         # bach normalization
         self.bn_params = []
@@ -543,8 +555,8 @@ class DeepConvNet(object):
 
 
 def find_over_fit_parameters():
-    weight_scale = 2e-1  # Experiment with this!
-    learning_rate = 1e-3  # Experiment with this!
+    weight_scale = 2e-1
+    learning_rate = 1e-3
     return weight_scale, learning_rate
 
 
@@ -602,37 +614,37 @@ class BatchNorm(object):
         """
         Forward pass for batch normalization.
 
-        During training the sample mean and (uncorrected) sample variance
+        During training, the sample mean and (uncorrected) sample variance
         are computed from minibatch statistics and used to normalize the
-        incoming data. During training we also keep an exponentially decaying
+        incoming data. During training, we also keep an exponentially decaying
         running mean of the mean and variance of each feature, and these
         averages are used to normalize data at test-time.
 
         At each timestep we update the running averages for mean and
         variance using an exponential decay based on the momentum parameter:
 
-        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
-        running_var = momentum * running_var + (1 - momentum) * sample_var
+        Running_mean = momentum * running_mean + (one - momentum) * sample_mean
+        running_var = momentum * running_var + (one - momentum) * sample_var
 
         Note that the batch normalization paper suggests a different
         test-time behavior: they compute sample mean and variance for
         each feature using a large number of training images rather than
-        using a running average. For this implementation we have chosen to use
+        using a running average. For this implementation, we have chosen to use
         running averages instead since they do not require an additional
         estimation step; the PyTorch implementation of batch normalization
         also uses running averages.
 
         Input:
         - x: Data of shape (N, D)
-        - gamma: Scale parameter of shape (D,)
-        - beta: Shift paremeter of shape (D,)
+        - gamma: Scale parameter of shape (D),
+        - beta: Shift parameter of shape (D)
         - bn_param: Dictionary with the following keys:
           - mode: 'train' or 'test'; required
           - eps: Constant for numeric stability
           - momentum: Constant for running mean / variance.
-          - running_mean: Array of shape (D,) giving running mean
+          - running_mean: Array of shape (D) giving running mean
             of features
-          - running_var Array of shape (D,) giving running variance
+          - running_var Array of shape (D) giving running variance
             of features
 
         Returns a tuple of:
@@ -718,10 +730,10 @@ class BatchNorm(object):
 
         Returns a tuple of:
         - dx: Gradient with respect to inputs x, of shape (N, D)
-        - dgamma: Gradient with respect to scale parameter gamma,
-          of shape (D,)
-        - dbeta: Gradient with respect to shift parameter beta,
-          of shape (D,)
+        - d_gamma: Gradient with respect to scale parameter gamma,
+          of shape (D)
+        - d_beta: Gradient with respect to shift parameter beta,
+          of shape (D)
         """
         dx, dgamma, dbeta = None, None, None
         #####################################################################
@@ -743,13 +755,13 @@ class BatchNorm(object):
     def backward_alt(dout, cache):
         """
         Alternative backward pass for batch normalization.
-        For this implementation you should work out the derivatives
-        for the batch normalizaton backward pass on paper and simplify
+        For this implementation, you should work out the derivatives
+        for the batch normalization backward pass on paper and simplify
         as much as possible. You should be able to derive a simple expression
         for the backward pass. See the jupyter notebook for more hints.
 
         Note: This implementation should expect to receive the same
-        cache variable as batchnorm_backward, but might not use all of
+        cache variable as batch norm_backward, but might not use all
         the values in the cache.
 
         Inputs / outputs: Same as batchnorm_backward
@@ -782,19 +794,18 @@ class SpatialBatchNorm(object):
 
         Inputs:
         - x: Input data of shape (N, C, H, W)
-        - gamma: Scale parameter, of shape (C,)
-        - beta: Shift parameter, of shape (C,)
+        - gamma: Scale parameter, of shape (C)
+        - beta: Shift parameter, of shape (C)
         - bn_param: Dictionary with the following keys:
           - mode: 'train' or 'test'; required
           - eps: Constant for numeric stability
-          - momentum: Constant for running mean / variance. momentum=0
+          - momentum: Constant for running mean / variance. Momentum=0
             means that old information is discarded completely at every
             time step, while momentum=1 means that new information is never
             incorporated. The default of momentum=0.9 should work well
             in most situations.
-          - running_mean: Array of shape (C,) giving running mean of
-            features
-          - running_var Array of shape (C,) giving running variance
+          - running_mean: Array of shape (C) giving running mean of features
+          - running_var Array of shape (C) giving running variance
             of features
 
         Returns a tuple of:
@@ -821,16 +832,16 @@ class SpatialBatchNorm(object):
         return out, cache
 
     @staticmethod
-    def backward(dout, cache):
+    def backward(d_out, cache):
         """
         Computes the backward pass for spatial batch normalization.
         Inputs:
-        - dout: Upstream derivatives, of shape (N, C, H, W)
+        - d_out: Upstream derivatives, of shape (N, C, H, W)
         - cache: Values from the forward pass
         Returns a tuple of:
         - dx: Gradient with respect to inputs, of shape (N, C, H, W)
-        - dgamma: Gradient with respect to scale parameter, of shape (C,)
-        - dbeta: Gradient with respect to shift parameter, of shape (C,)
+        - d_gamma: Gradient with respect to scale parameter, of shape (C)
+        - d_beta: Gradient with respect to shift parameter, of shape (C)
         """
         dx, dgamma, dbeta = None, None, None
 
@@ -987,13 +998,13 @@ class Linear_BatchNorm_ReLU(object):
     @staticmethod
     def forward(x, w, b, gamma, beta, bn_param):
         """
-        Convenience layer that performs an linear transform,
+        Convenience layer that performs a linear transform,
         batch normalization, and ReLU.
         Inputs:
         - x: Array of shape (N, D1); input to the linear layer
-        - w, b: Arrays of shape (D2, D2) and (D2,) giving the
+        - w, b: Arrays of shape (D2, D2) and (D2) giving the
           weight and bias for the linear transform.
-        - gamma, beta: Arrays of shape (D2,) and (D2,) giving
+        - gamma, beta: Arrays of shape (D2) and (D2) giving
           scale and shift parameters for batch normalization.
         - bn_param: Dictionary of parameters for batch
           normalization.
