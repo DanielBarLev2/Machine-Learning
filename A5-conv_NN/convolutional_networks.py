@@ -571,7 +571,7 @@ def create_convolutional_solver_instance(data_dict, dtype, device):
                   'X_val': data_dict['X_val'],
                   'y_val': data_dict['y_val'],
                   }
-    
+
     input_dims = small_data['X_train'].shape[1:]
 
     model = DeepConvNet(input_dims=input_dims,
@@ -643,8 +643,7 @@ class BatchNorm(object):
 
         At each timestep we update the running averages for mean and
         variance using an exponential decay based on the momentum parameter:
-
-        Running_mean = momentum * running_mean + (one - momentum) * sample_mean
+        running_mean = momentum * running_mean + (one - momentum) * sample_mean
         running_var = momentum * running_var + (one - momentum) * sample_var
 
         Note that the batch normalization paper suggests a different
@@ -676,59 +675,49 @@ class BatchNorm(object):
         eps = bn_param.get('eps', 1e-5)
         momentum = bn_param.get('momentum', 0.9)
 
-        N, D = x.shape
-        running_mean = bn_param.get('running_mean',
-                                    torch.zeros(D,
-                                                dtype=x.dtype,
-                                                device=x.device))
-        running_var = bn_param.get('running_var',
-                                   torch.zeros(D,
-                                               dtype=x.dtype,
-                                               device=x.device))
+        number, dimension = x.shape
+        running_mean = bn_param.get('running_mean', torch.zeros(dimension, dtype=x.dtype, device=x.device))
+        running_var = bn_param.get('running_var', torch.zeros(dimension, dtype=x.dtype, device=x.device))
 
         out, cache = None, None
+
         if mode == 'train':
-            ##################################################################
-            # TODO: Implement the training-time forward pass for batch norm. #
-            # Use minibatch statistics to compute the mean and variance, use #
-            # these statistics to normalize the incoming data, and scale and #
-            # shift the normalized data using gamma and beta.                #
-            #                                                                #
-            # You should store the output in the variable out.               #
-            # Any intermediates that you need for the backward pass should   #
-            # be stored in the cache variable.                               #
-            #                                                                #
-            # You should also use your computed sample mean and variance     #
-            # together with the momentum variable to update the running mean #
-            # and running variance, storing your result in the running_mean  #
-            # and running_var variables.                                     #
-            #                                                                #
-            # Note that though you should be keeping track of the running    #
-            # variance, you should normalize the data based on the standard  #
-            # deviation (square root of variance) instead!                   #
-            # Referencing the original paper                                 #
-            # (https://arxiv.org/abs/1502.03167) might prove to be helpful.  #
-            ##################################################################
-            # Replace "pass" statement with your code
-            pass
-            ################################################################
-            #                           END OF YOUR CODE                   #
-            ################################################################
+            # step 1: calculate mean
+            mu = 1. / number * x.sum(axis=0)
+            running_mean = momentum * running_mean + (1 - momentum) * mu
+
+            # step 2: subtract mean vector of every training example
+            xmu = x - mu
+
+            # step 3: following the lower branch - calculation denominator
+            sq = xmu ** 2
+
+            # step 4: calculate variance
+            var = 1. / number * sq.sum(axis=0)
+            running_var = momentum * running_var + (1 - momentum) * var
+
+            # step 5: add eps for numerical stability, then sqrt
+            sqrtvar = torch.sqrt(var + eps)
+
+            # step 6: invert sqrtwar
+            ivar = 1. / sqrtvar
+
+            # step 7: execute normalization
+            x_hat = xmu * ivar
+
+            # step 8: Nor the two transformation steps
+            gamma_x = gamma * x_hat
+
+            # step 9
+            out = gamma_x + beta
+
+            cache = (x_hat, gamma, xmu, ivar, sqrtvar, var, eps)
+
         elif mode == 'test':
-            ################################################################
-            # TODO: Implement the test-time forward pass for               #
-            # batch normalization. Use the running mean and variance to    #
-            # normalize the incoming data, then scale and shift the        #
-            # normalized data using gamma and beta. Store the result       #
-            # in the out variable.                                         #
-            ################################################################
-            # Replace "pass" statement with your code
-            pass
-            ################################################################
-            #                      END OF YOUR CODE                        #
-            ################################################################
+            normalized = ((x - running_mean) / (running_var + eps) ** (1 / 2))
+            out = normalized * gamma + beta
         else:
-            raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
+            raise ValueError('Invalid forward batch-norm mode "%s"' % mode)
 
         # Store the updated running means back into bn_param
         bn_param['running_mean'] = running_mean.detach()
@@ -746,7 +735,7 @@ class BatchNorm(object):
         propagate gradients backward through intermediate nodes.
 
         Inputs:
-        - dout: Upstream derivatives, of shape (N, D)
+        - d_out: Upstream derivatives, of shape (N, D)
         - cache: Variable of intermediates from batchnorm_forward.
 
         Returns a tuple of:
@@ -756,19 +745,44 @@ class BatchNorm(object):
         - d_beta: Gradient with respect to shift parameter beta,
           of shape (D)
         """
-        dx, dgamma, dbeta = None, None, None
-        #####################################################################
-        # TODO: Implement the backward pass for batch normalization.        #
-        # Store the results in the dx, dgamma, and dbeta variables.         #
-        # Referencing the original paper (https://arxiv.org/abs/1502.03167) #
-        # might prove to be helpful.                                        #
-        # Don't forget to implement train and test mode separately.         #
-        #####################################################################
-        # Replace "pass" statement with your code
-        pass
-        #################################################################
-        #                      END OF YOUR CODE                         #
-        #################################################################
+        xhat, gamma, xmu, ivar, sqrtvar, var, eps = cache
+
+        # get the dimensions of the input/output
+        N, D = dout.shape
+
+        # step9
+        dbeta = dout.sum(axis=0)
+        dgammax = dout  # not necessary, but more understandable
+
+        # step8
+        dgamma = (dgammax * xhat).sum(axis=0)
+        dxhat = dgammax * gamma
+
+        # step7
+        divar = (dxhat * xmu).sum(axis=0)
+        dxmu1 = dxhat * ivar
+
+        # step6
+        dsqrtvar = -1. / (sqrtvar ** 2) * divar
+
+        # step5
+        dvar = 0.5 * 1. / torch.sqrt(var + eps) * dsqrtvar
+
+        # step4
+        dsq = 1. / N * torch.ones((N, D)) * dvar
+
+        # step3
+        dxmu2 = 2 * xmu * dsq
+
+        # step2
+        dx1 = (dxmu1 + dxmu2)
+        dmu = -1 * (dxmu1 + dxmu2).sum(axis=0)
+
+        # step1
+        dx2 = 1. / N * torch.ones((N, D)) * dmu
+
+        # step0
+        dx = dx1 + dx2
 
         return dx, dgamma, dbeta
 
